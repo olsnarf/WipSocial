@@ -1,0 +1,2714 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Deny all access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Shared Hardened Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidChatId(id) {
+      return id is string && id.size() >= 3 && id.size() <= 260 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUsername(name) {
+      return name is string && name.size() >= 3 && name.size() <= 16 && name.matches('^[a-zA-Z0-9]+$');
+    }
+
+    function isValidLowerUsername(name) {
+      return name is string && name.size() >= 3 && name.size() <= 16 && name.matches('^[a-z0-9]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isHexColor(val) {
+      return val is string && val.size() == 7 && val.matches('^#[0-9a-fA-F]{6}$');
+    }
+
+    function isValidHairStyle(style) {
+      return style is string && style in [
+        'buzz', 'spiky', 'bob', 'long_waves', 'pompadour',
+        'undercut', 'braids', 'curls', 'afro', 'man_bun',
+        'side_part', 'curly_crop', 'slick_back', 'fade', 'tousled',
+        'pigtails', 'afro_puff', 'beach_waves', 'pixie', 'chignon',
+        'high_ponytail', 'curtain_bangs'
+      ];
+    }
+
+    function isClubOnlyHairStyle(style) {
+      return style in ['braids', 'curls'];
+    }
+
+    function isCustomWardrobeHairStyle(style) {
+      return style == 'afro';
+    }
+
+    function isValidHatStyle(hat) {
+      return hat is string && hat in [
+        'none', 'snapback', 'beanie', 'headphones', 'fedora',
+        'beret', 'tophat', 'crown', 'halo', 'fascinator', 'cloche'
+      ];
+    }
+
+    function isClubOnlyHatStyle(hat) {
+      return hat in ['tophat', 'crown', 'halo', 'fascinator', 'cloche'];
+    }
+
+    function isValidTopStyle(style) {
+      return style is string && style in [
+        'tshirt', 'hoodie', 'suit', 'leather', 'tank', 'crop',
+        'polo', 'turtleneck', 'silk_shirt', 'henley', 'varsity',
+        'tuxedo', 'cashmere', 'halter', 'silk_blouse'
+      ];
+    }
+
+    function isValidBottomStyle(style) {
+      return style is string && style in [
+        'jeans', 'shorts', 'skirt', 'slacks', 'chinos', 'cargo', 'midi_skirt'
+      ];
+    }
+
+    function isValidShoeStyle(style) {
+      return style is string && style in [
+        'sneakers', 'boots', 'loafers', 'dress_shoes', 'espadrilles', 'heels', 'oxfords'
+      ];
+    }
+
+    function isValidClothPattern(pat) {
+      return pat is string && pat in ['none', 'tie_dye', 'checkerboard', 'camo', 'starfield'];
+    }
+
+    function isClubOnlyTopColor(hex) {
+      return hex in ['#00f5d4', '#ff2a85', '#ffd166', '#e5e7eb', '#a3e635', '#9333ea'];
+    }
+
+    function isActiveClubUserDoc(data) {
+      return ('isClubMember' in data)
+        && data.isClubMember == true
+        && ('clubExpiresAt' in data)
+        && data.clubExpiresAt is timestamp
+        && data.clubExpiresAt > request.time;
+    }
+
+    function hasCustomWardrobeDoc(data) {
+      return (('hasCustomWardrobe' in data) && data.hasCustomWardrobe == true)
+        || (('staffRole' in data) && data.staffRole in ['owner', 'super_admin']);
+    }
+
+    function hasSpecialtyFurniDoc(data) {
+      return (('hasSpecialtyFurni' in data) && data.hasSpecialtyFurni == true)
+        || (('staffRole' in data) && data.staffRole in ['owner', 'super_admin']);
+    }
+
+    function isSignedInUserClubMember() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && isActiveClubUserDoc(get(/databases/$(database)/documents/users/$(request.auth.uid)).data);
+    }
+
+    function isSignedInUserSpecialtyUnlocked() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && hasSpecialtyFurniDoc(get(/databases/$(database)/documents/users/$(request.auth.uid)).data);
+    }
+
+    // 20x20 grid coordinate limit (0..19 for Owner Sanctuary and all smaller layouts)
+    function isValidCoord(val) {
+      return (val is int || val is float) && val >= 0 && val <= 19;
+    }
+
+    function isValidPlayerCoord(x, y) {
+      return (x == -1 && y == 0) || (isValidCoord(x) && isValidCoord(y));
+    }
+
+    function isValidDirection(dir) {
+      return dir is string && dir in ['NE', 'NW', 'SE', 'SW'];
+    }
+
+    function isValidDrink(drink) {
+      return drink is string && drink in [
+        'none', 'martini', 'whiskey', 'beer', 'shot', 'cocktail', 'espresso', 'soda'
+      ];
+    }
+
+    function isValidEmote(emote) {
+      return emote is string && emote in ['none', 'wave', 'dance', 'laugh', 'afk'];
+    }
+
+    function isValidAvatar(avatar) {
+      return avatar is map
+        && avatar.keys().hasAll(['skin', 'hair', 'top', 'bottom', 'hairStyle'])
+        && avatar.keys().hasOnly([
+          'gender', 'skin', 'hair', 'eyeColor', 'top', 'bottom', 'hairStyle',
+          'hat', 'topStyle', 'bottomStyle', 'shoeStyle', 'shoeColor', 'clothPattern',
+          'hairId', 'topId', 'bottomId', 'footwearId', 'accessoryId', 'auraEffect'
+        ])
+        && (!('gender' in avatar) || (avatar.gender is string && avatar.gender in ['male', 'female']))
+        && isHexColor(avatar.skin)
+        && isHexColor(avatar.hair)
+        && (!('eyeColor' in avatar) || isHexColor(avatar.eyeColor))
+        && isHexColor(avatar.top)
+        && isHexColor(avatar.bottom)
+        && isValidHairStyle(avatar.hairStyle)
+        && (!('hat' in avatar) || isValidHatStyle(avatar.hat))
+        && (!('topStyle' in avatar) || isValidTopStyle(avatar.topStyle))
+        && (!('bottomStyle' in avatar) || isValidBottomStyle(avatar.bottomStyle))
+        && (!('shoeStyle' in avatar) || isValidShoeStyle(avatar.shoeStyle))
+        && (!('shoeColor' in avatar) || isHexColor(avatar.shoeColor))
+        && (!('clothPattern' in avatar) || isValidClothPattern(avatar.clothPattern))
+        && (!('hairId' in avatar) || (avatar.hairId is string && avatar.hairId.size() <= 48))
+        && (!('topId' in avatar) || (avatar.topId is string && avatar.topId.size() <= 48))
+        && (!('bottomId' in avatar) || (avatar.bottomId is string && avatar.bottomId.size() <= 48))
+        && (!('footwearId' in avatar) || (avatar.footwearId is string && avatar.footwearId.size() <= 48))
+        && (!('accessoryId' in avatar) || (avatar.accessoryId is string && avatar.accessoryId.size() <= 48))
+        && (!('auraEffect' in avatar) || (avatar.auraEffect is string && avatar.auraEffect in ['none', 'diamond']));
+    }
+
+    function hasClubAccessForAvatar(userData, avatar) {
+      let hasClub = isActiveClubUserDoc(userData);
+      let hasWardrobe = hasCustomWardrobeDoc(userData);
+      let ownedIds = userData.get('ownedWardrobeIds', []);
+      let hairUnlocked = ('hairId' in avatar) && (avatar.hairId in ownedIds);
+      let accUnlocked = ('accessoryId' in avatar) && (avatar.accessoryId in ownedIds);
+      let topUnlocked = ('topId' in avatar) && (avatar.topId in ownedIds);
+      return (hasClub || hasWardrobe || hairUnlocked || !isClubOnlyHairStyle(avatar.hairStyle))
+        && (hasWardrobe || hairUnlocked || !isCustomWardrobeHairStyle(avatar.hairStyle))
+        && (hasClub || hasWardrobe || accUnlocked || !('hat' in avatar) || !isClubOnlyHatStyle(avatar.hat))
+        && (hasClub || hasWardrobe || topUnlocked || !isClubOnlyTopColor(avatar.top))
+        && (hasWardrobe || !('clothPattern' in avatar) || avatar.clothPattern == 'none')
+        && (hasClub || isTargetOwnerDoc(userData) || !('auraEffect' in avatar) || avatar.auraEffect == 'none');
+    }
+
+    function isValidWallTheme(theme) {
+      return theme is string && theme in [
+        'art_deco_brass',
+        'mahogany_lobby',
+        'sapphire_salon',
+        'emerald_terrace',
+        'casino_gilded',
+        'sunlit_loft',
+        'cozy_cafe',
+        'apartment_warm',
+        'game_arena',
+        'dark_slate_neon',
+        'exposed_brick_club',
+        'velvet_crimson',
+        'midnight_penthouse',
+        'cyber_grid'
+      ];
+    }
+
+    function isValidFloorTheme(theme) {
+      return theme is string && theme in [
+        'veined_marble_gold',
+        'art_deco_chevron',
+        'emerald_terrazzo',
+        'sapphire_carpet',
+        'ivory_travertine',
+        'oak_parquet',
+        'cafe_terracotta',
+        'sunlit_tile',
+        'arena_turf',
+        'checkered_marble',
+        'dark_hardwood',
+        'glowing_club_tiles',
+        'plush_burgundy_carpet',
+        'concrete_loft'
+      ];
+    }
+
+    function isValidLayoutType(layout) {
+      return layout is string && layout in [
+        'cozy_studio',
+        'classic_lounge',
+        'l_shaped_vip',
+        'grand_penthouse',
+        'vip_duplex_loft',
+        'vip_sky_atrium',
+        'owner_sanctuary'
+      ];
+    }
+
+    function isVipLayoutType(layout) {
+      return layout in ['vip_duplex_loft', 'vip_sky_atrium'];
+    }
+
+    function isValidAccessMode(mode) {
+      return mode is string && mode in ['open', 'doorbell', 'password'];
+    }
+
+    function isValidAmbientDim(dim) {
+      return (dim is int || dim is float) && dim >= 0 && dim <= 70;
+    }
+
+    function isSystemPublicRoomId(roomId) {
+      return roomId in [
+        'velvet_lobby', 'rooftop_bar', 'vip_speakeasy',
+        'turf_wars_arena', 'rapid_chairs_hall', 'grand_parlor_casino'
+      ];
+    }
+
+    function isRoomOwner(roomId) {
+      return exists(/databases/$(database)/documents/rooms/$(roomId))
+        && get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerId == request.auth.uid;
+    }
+
+    function isSandboxRoom(roomId) {
+      return exists(/databases/$(database)/documents/rooms/$(roomId))
+        && get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerId == 'system';
+    }
+
+    function isOpenBuildRoom(roomId) {
+      return exists(/databases/$(database)/documents/rooms/$(roomId))
+        && get(/databases/$(database)/documents/rooms/$(roomId)).data.get('allowVisitorBuild', false) == true;
+    }
+
+    function isRoomModerator(roomId) {
+      return exists(/databases/$(database)/documents/rooms/$(roomId))
+        && 'moderators' in get(/databases/$(database)/documents/rooms/$(roomId)).data
+        && request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.moderators;
+    }
+
+    function isRoomHost(roomId) {
+      return isRoomModerator(roomId)
+        || (
+          exists(/databases/$(database)/documents/rooms/$(roomId))
+          && 'hosts' in get(/databases/$(database)/documents/rooms/$(roomId)).data
+          && request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.hosts
+        );
+    }
+
+    function isRoomBuilder(roomId) {
+      return exists(/databases/$(database)/documents/rooms/$(roomId))
+        && 'builders' in get(/databases/$(database)/documents/rooms/$(roomId)).data
+        && request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.builders;
+    }
+
+    function isBannedFromRoom(roomId) {
+      return exists(/databases/$(database)/documents/rooms/$(roomId))
+        && 'bannedUsers' in get(/databases/$(database)/documents/rooms/$(roomId)).data
+        && request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.bannedUsers;
+    }
+
+    function isSilencedInRoom(roomId) {
+      return exists(/databases/$(database)/documents/rooms/$(roomId))
+        && 'silencedUsers' in get(/databases/$(database)/documents/rooms/$(roomId)).data
+        && request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.silencedUsers
+        && get(/databases/$(database)/documents/rooms/$(roomId)).data.silencedUsers[request.auth.uid] > request.time.toMillis();
+    }
+
+    function isValidStaffRole(role) {
+      return role is string && role in ['user', 'moderator', 'gm', 'admin', 'owner', 'super_admin'];
+    }
+
+    function isCallerStaffRoleIn(roles) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && ('staffRole' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data)
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.staffRole in roles;
+    }
+
+    function isGlobalModOrAbove() {
+      return isCallerStaffRoleIn(['moderator', 'gm', 'admin', 'owner', 'super_admin']);
+    }
+
+    function isGlobalGmOrAbove() {
+      return isCallerStaffRoleIn(['gm', 'admin', 'owner', 'super_admin']);
+    }
+
+    function isGlobalAdmin() {
+      return isCallerStaffRoleIn(['admin', 'owner', 'super_admin']);
+    }
+
+    function isOwner() {
+      return isCallerStaffRoleIn(['owner', 'super_admin']);
+    }
+
+    function canManageRoomFurniture(roomId) {
+      return isRoomOwner(roomId) || isGlobalGmOrAbove() || isOpenBuildRoom(roomId) || isRoomBuilder(roomId);
+    }
+
+    function isTargetOwnerDoc(data) {
+      return ('staffRole' in data) && data.staffRole in ['owner', 'super_admin'];
+    }
+
+    function isCallerGloballyBanned() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && ('isBanned' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data)
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBanned == true
+        && (
+          !('tempBanUntilMs' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data)
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tempBanUntilMs == 0
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tempBanUntilMs > request.time.toMillis()
+        );
+    }
+
+    function isCallerGloballyMuted() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && ('isMuted' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data)
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isMuted == true;
+    }
+
+    function isEconomyFrozen() {
+      return (
+        exists(/databases/$(database)/documents/server_state/config)
+        && get(/databases/$(database)/documents/server_state/config).data.get('economyFreeze', false) == true
+      ) || (
+        exists(/databases/$(database)/documents/app_meta/config)
+        && get(/databases/$(database)/documents/app_meta/config).data.get('economyFreeze', false) == true
+      );
+    }
+
+    function isValidCustomSpriteSpec(spec) {
+      return spec is map
+        && spec.keys().hasAll(['shape', 'primaryHex', 'secondaryHex', 'glowHex', 'pattern'])
+        && spec.keys().hasOnly(['shape', 'primaryHex', 'secondaryHex', 'glowHex', 'pattern'])
+        && spec.shape in ['chair', 'table', 'lamp', 'pillar', 'rug']
+        && isHexColor(spec.primaryHex)
+        && isHexColor(spec.secondaryHex)
+        && isHexColor(spec.glowHex)
+        && spec.pattern in ['solid', 'tie_dye', 'checkerboard', 'starfield'];
+    }
+
+    function isValidFurnitureVariantSpec(spec) {
+      return spec is map
+        && spec.keys().hasAll(['finishId', 'primaryHex', 'secondaryHex', 'accentHex', 'material'])
+        && spec.keys().hasOnly(['finishId', 'primaryHex', 'secondaryHex', 'accentHex', 'material', 'artworkIndex'])
+        && spec.finishId is string && spec.finishId.size() <= 48
+        && isHexColor(spec.primaryHex)
+        && isHexColor(spec.secondaryHex)
+        && isHexColor(spec.accentHex)
+        && spec.material is string && spec.material.size() <= 32
+        && (!('artworkIndex' in spec) || (spec.artworkIndex is int && spec.artworkIndex >= 0 && spec.artworkIndex <= 200));
+    }
+
+    function isValidUserProfile(data, uid) {
+      return data.keys().hasAll([
+          'uid', 'username', 'credits', 'tokens',
+          'lastDailyClaim', 'avatar', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'username', 'motto', 'staffRole', 'isOnDuty',
+          'isBanned', 'tempBanUntilMs', 'banReason', 'isMuted',
+          'hasCustomWardrobe', 'hasSpecialtyFurni', 'eloRating', 'turfRating',
+          'summonRoomId', 'summonRoomName', 'summonBy', 'summonAt',
+          'credits', 'tokens', 'memberPoints', 'memberTenureMonths',
+          'claimedTierRewards', 'ownedWardrobeIds',
+          'isClubMember', 'clubExpiresAt',
+          'lastDailyClaim', 'lastClaimAt', 'lastChatAt',
+          'avatar', 'createdAt', 'lastTradeId'
+        ])
+        && isValidId(data.uid)
+        && data.uid == uid
+        && isValidUsername(data.username)
+        && (!('motto' in data) || (data.motto is string && data.motto.size() <= 50))
+        && (!('staffRole' in data) || isValidStaffRole(data.staffRole))
+        && (!('isOnDuty' in data) || data.isOnDuty is bool)
+        && (!('isBanned' in data) || data.isBanned is bool)
+        && (!('tempBanUntilMs' in data) || ((data.tempBanUntilMs is int || data.tempBanUntilMs is float) && data.tempBanUntilMs >= 0))
+        && (!('banReason' in data) || (data.banReason is string && data.banReason.size() <= 160))
+        && (!('isMuted' in data) || data.isMuted is bool)
+        && (!('hasCustomWardrobe' in data) || data.hasCustomWardrobe is bool)
+        && (!('hasSpecialtyFurni' in data) || data.hasSpecialtyFurni is bool)
+        && (!('eloRating' in data) || (data.eloRating is int && data.eloRating >= 0 && data.eloRating <= 5000))
+        && (!('turfRating' in data) || (data.turfRating is int && data.turfRating >= 0 && data.turfRating <= 5000))
+        && (!('summonRoomId' in data) || (data.summonRoomId is string && data.summonRoomId.size() <= 128))
+        && (!('summonRoomName' in data) || (data.summonRoomName is string && data.summonRoomName.size() <= 36))
+        && (!('summonBy' in data) || (data.summonBy is string && data.summonBy.size() <= 24))
+        && (!('summonAt' in data) || ((data.summonAt is int || data.summonAt is float) && data.summonAt >= 0))
+        && data.credits is int
+        && data.credits >= 0
+        && data.credits <= 1000000
+        && data.tokens is int
+        && data.tokens >= 0
+        && data.tokens <= 10000000
+        && (!('memberPoints' in data) || (data.memberPoints is int && data.memberPoints >= 0 && data.memberPoints <= 10000000))
+        && (!('memberTenureMonths' in data) || (data.memberTenureMonths is int && data.memberTenureMonths >= 0 && data.memberTenureMonths <= 240))
+        && (!('claimedTierRewards' in data) || (data.claimedTierRewards is list && data.claimedTierRewards.size() <= 10 && (data.claimedTierRewards.size() == 0 || data.claimedTierRewards[0] is string)))
+        && (!('ownedWardrobeIds' in data) || (data.ownedWardrobeIds is list && data.ownedWardrobeIds.size() <= 300 && (data.ownedWardrobeIds.size() == 0 || data.ownedWardrobeIds[0] is string)))
+        && (!('isClubMember' in data) || data.isClubMember is bool)
+        && (!('clubExpiresAt' in data) || data.clubExpiresAt is timestamp)
+        && data.lastDailyClaim is timestamp
+        && (!('lastClaimAt' in data) || data.lastClaimAt is timestamp)
+        && (!('lastChatAt' in data) || data.lastChatAt is timestamp)
+        && isValidAvatar(data.avatar)
+        && (!('lastTradeId' in data) || isValidId(data.lastTradeId))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidStaffLog(data, logId) {
+      return data.keys().hasAll([
+          'id', 'actorUid', 'actorName', 'action',
+          'targetUid', 'targetName', 'details', 'timestamp'
+        ])
+        && data.keys().hasOnly([
+          'id', 'actorUid', 'actorName', 'action',
+          'targetUid', 'targetName', 'details', 'timestamp'
+        ])
+        && isValidId(data.id)
+        && data.id == logId
+        && isValidId(data.actorUid)
+        && data.actorName is string
+        && data.actorName.size() >= 1
+        && data.actorName.size() <= 24
+        && data.action is string
+        && data.action in [
+          'ban', 'temp_ban', 'unban', 'mute', 'unmute', 'room_kick',
+          'grant_credits', 'grant_tokens', 'deduct_wallet', 'grant_vip',
+          'grant_unlock', 'role_change', 'report_resolved', 'server_control',
+          'catalog_create', 'event_launch', 'chest_drop'
+        ]
+        && isValidId(data.targetUid)
+        && data.targetName is string
+        && data.targetName.size() >= 1
+        && data.targetName.size() <= 24
+        && data.details is string
+        && data.details.size() >= 1
+        && data.details.size() <= 200
+        && data.timestamp is timestamp;
+    }
+
+    function isValidInventoryItem(data, itemId) {
+      return data.keys().hasAll(['itemId', 'type', 'name', 'walkable', 'isTradable', 'acquiredAt'])
+        && data.keys().hasOnly([
+          'itemId', 'type', 'name', 'walkable', 'isTradable',
+          'catalogId', 'isClubOnly', 'variantSpec', 'customSpriteSpec', 'acquiredAt'
+        ])
+        && isValidId(data.itemId)
+        && data.itemId == itemId
+        && isValidFurnitureType(data.type)
+        && data.name is string
+        && data.name.size() >= 1
+        && data.name.size() <= 48
+        && data.walkable is bool
+        && data.isTradable is bool
+        && data.isTradable == true
+        && (!('catalogId' in data) || (data.catalogId is string && data.catalogId.size() <= 64))
+        && (!('isClubOnly' in data) || data.isClubOnly is bool)
+        && (!('variantSpec' in data) || isValidFurnitureVariantSpec(data.variantSpec))
+        && (!('customSpriteSpec' in data) || isValidCustomSpriteSpec(data.customSpriteSpec))
+        && data.acquiredAt is timestamp
+        && data.acquiredAt == request.time;
+    }
+
+    function isValidFriendLink(data, friendUid) {
+      return data.keys().hasAll(['uid', 'username', 'status', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'username', 'status', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == friendUid
+        && isValidUsername(data.username)
+        && data.status is string
+        && data.status in ['pending_incoming', 'pending_outgoing', 'accepted']
+        && data.updatedAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidPlayerStatus(data, uid) {
+      return data.keys().hasAll(['uid', 'username', 'currentRoomId', 'currentRoomName', 'isOnline', 'lastSeen'])
+        && data.keys().hasOnly(['uid', 'username', 'currentRoomId', 'currentRoomName', 'isOnline', 'lastSeen'])
+        && isValidId(data.uid)
+        && data.uid == uid
+        && data.uid == request.auth.uid
+        && isValidUsername(data.username)
+        && isValidId(data.currentRoomId)
+        && data.currentRoomName is string
+        && data.currentRoomName.size() >= 1
+        && data.currentRoomName.size() <= 36
+        && data.isOnline is bool
+        && data.lastSeen is timestamp
+        && data.lastSeen == request.time;
+    }
+
+    function isValidTradeOffer(offer) {
+      return offer is map
+        && offer.keys().hasAll(['credits', 'tokens', 'items'])
+        && offer.keys().hasOnly(['credits', 'tokens', 'items'])
+        && offer.credits is int
+        && offer.credits >= 0
+        && offer.credits <= 1000000
+        && offer.tokens is int
+        && offer.tokens >= 0
+        && offer.tokens <= 10000000
+        && offer.items is list
+        && offer.items.size() <= 4
+        && (offer.items.size() == 0 || offer.items[0] is map);
+    }
+
+    function isValidTrade(data, tradeId) {
+      return data.keys().hasAll([
+          'id', 'roomId', 'uidA', 'usernameA', 'uidB', 'usernameB',
+          'participantIds', 'status', 'offerA', 'offerB',
+          'acceptA', 'acceptB', 'confirmA', 'confirmB', 'syncedA', 'syncedB',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'roomId', 'uidA', 'usernameA', 'uidB', 'usernameB',
+          'participantIds', 'status', 'offerA', 'offerB',
+          'acceptA', 'acceptB', 'confirmA', 'confirmB', 'syncedA', 'syncedB',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.id == tradeId
+        && isValidId(data.roomId)
+        && isValidId(data.uidA)
+        && isValidUsername(data.usernameA)
+        && isValidId(data.uidB)
+        && isValidUsername(data.usernameB)
+        && data.uidA != data.uidB
+        && data.participantIds is list
+        && data.participantIds.size() == 2
+        && data.uidA in data.participantIds
+        && data.uidB in data.participantIds
+        && data.status is string
+        && data.status in ['open', 'completed', 'cancelled']
+        && isValidTradeOffer(data.offerA)
+        && isValidTradeOffer(data.offerB)
+        && data.acceptA is bool
+        && data.acceptB is bool
+        && data.confirmA is bool
+        && data.confirmB is bool
+        && data.syncedA is bool
+        && data.syncedB is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidPrivateChat(data, chatId) {
+      return data.keys().hasAll([
+          'id', 'participantIds', 'participantNames',
+          'lastMessageText', 'lastSenderUid', 'readBy', 'lastMessageAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'participantIds', 'participantNames',
+          'lastMessageText', 'lastSenderUid', 'readBy', 'lastMessageAt'
+        ])
+        && isValidChatId(data.id)
+        && data.id == chatId
+        && data.participantIds is list
+        && data.participantIds.size() == 2
+        && data.participantIds[0] is string
+        && data.participantIds[1] is string
+        && data.participantIds[0] != data.participantIds[1]
+        && data.participantNames is map
+        && data.lastMessageText is string
+        && data.lastMessageText.size() <= 500
+        && isValidId(data.lastSenderUid)
+        && data.readBy is map
+        && data.lastMessageAt is timestamp;
+    }
+
+    function isValidPrivateMessage(data) {
+      return data.keys().hasAll(['senderUid', 'senderName', 'participantIds', 'text', 'createdAt'])
+        && data.keys().hasOnly(['senderUid', 'senderName', 'participantIds', 'text', 'createdAt'])
+        && isValidId(data.senderUid)
+        && data.senderUid == request.auth.uid
+        && data.senderName is string
+        && data.senderName.size() >= 1
+        && data.senderName.size() <= 24
+        && data.participantIds is list
+        && data.participantIds.size() == 2
+        && data.participantIds[0] is string
+        && data.participantIds[1] is string
+        && data.text is string
+        && data.text.size() >= 1
+        && data.text.size() <= 500
+        && data.createdAt is timestamp
+        && data.createdAt == request.time;
+    }
+
+    function isChatParticipant(chatId) {
+      return exists(/databases/$(database)/documents/private_chats/$(chatId))
+        && request.auth.uid in get(/databases/$(database)/documents/private_chats/$(chatId)).data.participantIds;
+    }
+
+    function isValidUsernameClaim(data, lowercaseName) {
+      return data.keys().hasAll(['uid', 'username', 'authEmail', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'username', 'authEmail', 'createdAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && isValidUsername(data.username)
+        && data.username.lower() == lowercaseName
+        && data.authEmail is string
+        && data.authEmail.size() >= 16
+        && data.authEmail.size() <= 30
+        && data.authEmail.matches('^[a-z0-9]{3,16}@lounge\\.local$')
+        && data.createdAt is timestamp
+        && data.createdAt == request.time;
+    }
+
+    function isValidGameMode(mode) {
+      return mode is string && mode in [
+        'hangout', 'kick_wars', 'maze_race', 'casino_freeplay',
+        'turf_wars', 'rapid_chairs', 'parlor_casino'
+      ];
+    }
+
+    function isValidKickWarsMode(mode) {
+      return mode is string && mode in ['ffa', 'team'];
+    }
+
+    function isValidKickWarsRange(range) {
+      return range is string && range in ['melee', 'open'];
+    }
+
+    function isValidPlayerTeam(team) {
+      return team is string && team in ['none', 'red', 'blue'];
+    }
+
+    function isValidRoom(data, roomId) {
+      return data.keys().hasAll([
+          'id', 'name', 'ownerId', 'ownerName',
+          'isPublic', 'wallTheme', 'floorTheme', 'ambientDim', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'ownerId', 'ownerName',
+          'isPublic', 'layoutType', 'accessMode', 'roomPasscode', 'invitedUids',
+          'allowWalkThrough', 'allowVisitorBuild',
+          'wallTheme', 'floorTheme', 'ambientDim',
+          'moderators', 'hosts', 'builders',
+          'gameMode', 'groupId', 'kickWarsMode', 'kickWarsRange',
+          'matchActive', 'redScore', 'blueScore',
+          'bannedUsers', 'silencedUsers', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.id == roomId
+        && data.name is string
+        && data.name.size() >= 1
+        && data.name.size() <= 36
+        && isValidId(data.ownerId)
+        && data.ownerName is string
+        && data.ownerName.size() >= 1
+        && data.ownerName.size() <= 24
+        && data.isPublic is bool
+        && (!('layoutType' in data) || isValidLayoutType(data.layoutType))
+        && (!('accessMode' in data) || isValidAccessMode(data.accessMode))
+        && (!('roomPasscode' in data) || (data.roomPasscode is string && data.roomPasscode.size() <= 24))
+        && (!('invitedUids' in data) || (data.invitedUids is list && data.invitedUids.size() <= 50 && (data.invitedUids.size() == 0 || data.invitedUids[0] is string)))
+        && (!('allowWalkThrough' in data) || data.allowWalkThrough is bool)
+        && (!('allowVisitorBuild' in data) || data.allowVisitorBuild is bool)
+        && isValidWallTheme(data.wallTheme)
+        && isValidFloorTheme(data.floorTheme)
+        && isValidAmbientDim(data.ambientDim)
+        && (!('moderators' in data) || (data.moderators is list && data.moderators.size() <= 20 && (data.moderators.size() == 0 || data.moderators[0] is string)))
+        && (!('hosts' in data) || (data.hosts is list && data.hosts.size() <= 20 && (data.hosts.size() == 0 || data.hosts[0] is string)))
+        && (!('builders' in data) || (data.builders is list && data.builders.size() <= 20 && (data.builders.size() == 0 || data.builders[0] is string)))
+        && (!('gameMode' in data) || isValidGameMode(data.gameMode))
+        && (!('groupId' in data) || (data.groupId is string && data.groupId.size() <= 128 && (data.groupId == '' || isValidId(data.groupId))))
+        && (!('kickWarsMode' in data) || isValidKickWarsMode(data.kickWarsMode))
+        && (!('kickWarsRange' in data) || isValidKickWarsRange(data.kickWarsRange))
+        && (!('matchActive' in data) || data.matchActive is bool)
+        && (!('redScore' in data) || (data.redScore is int && data.redScore >= 0 && data.redScore <= 999))
+        && (!('blueScore' in data) || (data.blueScore is int && data.blueScore >= 0 && data.blueScore <= 999))
+        && (!('bannedUsers' in data) || data.bannedUsers is map)
+        && (!('silencedUsers' in data) || data.silencedUsers is map)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidRoomGroup(data, groupId) {
+      return data.keys().hasAll([
+          'id', 'name', 'ownerId', 'ownerName',
+          'gameType', 'lobbyRoomId', 'arenaRoomIds', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'ownerId', 'ownerName',
+          'gameType', 'lobbyRoomId', 'arenaRoomIds', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.id == groupId
+        && data.name is string
+        && data.name.size() >= 1
+        && data.name.size() <= 36
+        && isValidId(data.ownerId)
+        && data.ownerName is string
+        && data.ownerName.size() >= 1
+        && data.ownerName.size() <= 24
+        && data.gameType is string
+        && data.gameType in ['kick_wars', 'maze_race', 'hangout']
+        && isValidId(data.lobbyRoomId)
+        && data.arenaRoomIds is list
+        && data.arenaRoomIds.size() <= 20
+        && (data.arenaRoomIds.size() == 0 || isValidId(data.arenaRoomIds[0]))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidActiveMatch(data) {
+      return data.keys().hasAll([
+          'id', 'groupId', 'status', 'startedByUid', 'startedByName',
+          'fighters', 'startedAtMs', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'groupId', 'status', 'startedByUid', 'startedByName',
+          'fighters', 'winnerUid', 'winnerName', 'mvpUid', 'mvpName', 'mvpKicks',
+          'startedAtMs', 'endedAtMs', 'updatedAt'
+        ])
+        && data.id == 'current'
+        && isValidId(data.groupId)
+        && data.status in ['active', 'ended']
+        && isValidId(data.startedByUid)
+        && data.startedByName is string
+        && data.startedByName.size() >= 1
+        && data.startedByName.size() <= 24
+        && data.fighters is list
+        && data.fighters.size() <= 32
+        && (data.fighters.size() == 0 || data.fighters[0] is map)
+        && (!('winnerUid' in data) || (data.winnerUid is string && data.winnerUid.size() <= 128))
+        && (!('winnerName' in data) || (data.winnerName is string && data.winnerName.size() <= 24))
+        && (!('mvpUid' in data) || (data.mvpUid is string && data.mvpUid.size() <= 128))
+        && (!('mvpName' in data) || (data.mvpName is string && data.mvpName.size() <= 24))
+        && (!('mvpKicks' in data) || (data.mvpKicks is int && data.mvpKicks >= 0 && data.mvpKicks <= 999))
+        && (data.startedAtMs is int || data.startedAtMs is float)
+        && (!('endedAtMs' in data) || (data.endedAtMs is int || data.endedAtMs is float))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRoomKick(data, kickId) {
+      return data.keys().hasAll([
+          'id', 'kickerUid', 'kickerName', 'targetUid', 'targetName', 'kickType', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'kickerUid', 'kickerName', 'targetUid', 'targetName', 'kickType', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.id == kickId
+        && isValidId(data.kickerUid)
+        && data.kickerName is string
+        && data.kickerName.size() >= 1
+        && data.kickerName.size() <= 24
+        && isValidId(data.targetUid)
+        && data.targetName is string
+        && data.targetName.size() >= 1
+        && data.targetName.size() <= 24
+        && data.kickerUid != data.targetUid
+        && data.kickType is string
+        && data.kickType in ['manual', 'host']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidDoorbell(data, uid) {
+      return data.keys().hasAll(['uid', 'username', 'status', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'username', 'status', 'createdAt'])
+        && isValidId(data.uid)
+        && data.uid == uid
+        && data.username is string
+        && data.username.size() >= 1
+        && data.username.size() <= 24
+        && data.status is string
+        && data.status in ['ringing', 'accepted', 'denied']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidNpcRole(role) {
+      return role is string && role in ['bartender', 'bouncer', 'dj', 'host'];
+    }
+
+    function isValidRoomNpc(data, npcId) {
+      return data.keys().hasAll([
+          'id', 'name', 'role', 'avatar', 'x', 'y', 'direction',
+          'dialogueList', 'patrolPath', 'ownerId', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'role', 'avatar', 'x', 'y', 'direction',
+          'dialogueList', 'patrolPath', 'ownerId', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.id == npcId
+        && data.name is string
+        && data.name.size() >= 1
+        && data.name.size() <= 24
+        && isValidNpcRole(data.role)
+        && isValidAvatar(data.avatar)
+        && isValidCoord(data.x)
+        && isValidCoord(data.y)
+        && isValidDirection(data.direction)
+        && data.dialogueList is list
+        && data.dialogueList.size() <= 3
+        && (data.dialogueList.size() == 0 || (data.dialogueList[0] is string && data.dialogueList[0].size() <= 120))
+        && data.patrolPath is list
+        && data.patrolPath.size() <= 12
+        && (data.patrolPath.size() == 0 || (data.patrolPath[0] is map && isValidCoord(data.patrolPath[0].x) && isValidCoord(data.patrolPath[0].y)))
+        && isValidId(data.ownerId)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPlayer(data) {
+      return data.keys().hasAll([
+          'uid', 'displayName', 'isAdultConfirmed',
+          'x', 'y', 'targetX', 'targetY',
+          'direction', 'avatar', 'heldDrink', 'lastActive'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'motto', 'staffRole', 'isOnDuty',
+          'isClubMember', 'isAdultConfirmed',
+          'x', 'y', 'targetX', 'targetY',
+          'direction', 'avatar', 'heldDrink', 'emote', 'emoteUntil',
+          'team', 'spawnShieldUntil', 'lastKickAt',
+          'stunnedUntil', 'stunImmuneUntil', 'lastActive'
+        ])
+        && isValidId(data.uid)
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 24
+        && (!('motto' in data) || (data.motto is string && data.motto.size() <= 50))
+        && (!('staffRole' in data) || isValidStaffRole(data.staffRole))
+        && (!('isOnDuty' in data) || data.isOnDuty is bool)
+        && (!('isClubMember' in data) || data.isClubMember is bool)
+        && data.isAdultConfirmed is bool
+        && data.isAdultConfirmed == true
+        && isValidPlayerCoord(data.x, data.y)
+        && isValidPlayerCoord(data.targetX, data.targetY)
+        && isValidDirection(data.direction)
+        && isValidAvatar(data.avatar)
+        && isValidDrink(data.heldDrink)
+        && (!('emote' in data) || isValidEmote(data.emote))
+        && (!('emoteUntil' in data) || ((data.emoteUntil is int || data.emoteUntil is float) && data.emoteUntil >= 0))
+        && (!('team' in data) || isValidPlayerTeam(data.team))
+        && (!('spawnShieldUntil' in data) || ((data.spawnShieldUntil is int || data.spawnShieldUntil is float) && data.spawnShieldUntil >= 0))
+        && (!('lastKickAt' in data) || ((data.lastKickAt is int || data.lastKickAt is float) && data.lastKickAt >= 0))
+        && (!('stunnedUntil' in data) || ((data.stunnedUntil is int || data.stunnedUntil is float) && data.stunnedUntil >= 0))
+        && (!('stunImmuneUntil' in data) || ((data.stunImmuneUntil is int || data.stunImmuneUntil is float) && data.stunImmuneUntil >= 0))
+        && data.lastActive is timestamp;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'text', 'kind', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'isClubMember', 'staffRole', 'isOnDuty', 'text', 'kind', 'createdAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 24
+        && (!('isClubMember' in data) || data.isClubMember is bool)
+        && (!('staffRole' in data) || isValidStaffRole(data.staffRole))
+        && (!('isOnDuty' in data) || data.isOnDuty is bool)
+        && data.text is string
+        && data.text.size() >= 1
+        && data.text.size() <= 500
+        && data.kind is string
+        && data.kind == 'chat'
+        && data.createdAt is timestamp
+        && data.createdAt == request.time;
+    }
+
+    function isValidFurnitureType(t) {
+      return t is string && t in [
+        'dj_console',
+        'dj_speaker',
+        'bar_counter',
+        'bar_corner',
+        'vip_sofa',
+        'vip_table',
+        'velvet_armchair',
+        'neon_cocktail_table',
+        'retro_arcade',
+        'potted_monstera',
+        'dance_floor_tile',
+        'vip_daybed',
+        'club_rug',
+        'neon_lamp',
+        'cocktail_tray',
+        'casino_dice',
+        'vip_rope_gate',
+        'teleporter_booth',
+        'one_way_gate',
+        'pressure_plate',
+        'espresso_bar',
+        'cafe_bistro_table',
+        'cozy_bookshelf',
+        'loft_armchair',
+        'vip_golden_trophy',
+        'vip_grand_piano',
+        'vip_hot_tub',
+        'vip_emerald_throne',
+        'rope_barrier',
+        'picket_fence',
+        'glass_partition',
+        'velvet_stanchion',
+        'laser_gate',
+        'arena_scoreboard',
+        'tie_dye_beanbag',
+        'lava_lamp',
+        'tie_dye_rug',
+        'beaded_curtain',
+        'shag_velvet_sofa',
+        'peace_neon_art',
+        'custom_sprite',
+        'reception_desk',
+        'chesterfield_sofa',
+        'brass_stanchion',
+        'potted_ficus',
+        'hotel_elevator',
+        'four_poster_bed',
+        'nightstand',
+        'flat_screen_tv',
+        'mini_fridge',
+        'suitcase_stand',
+        'wardrobe_cabinet',
+        'coffee_machine',
+        'barista_counter',
+        'bistro_table',
+        'bistro_chair',
+        'vending_machine',
+        'pastry_display',
+        'poker_table',
+        'roulette_table',
+        'slot_machine',
+        'craps_table',
+        'poker_chips',
+        'pool_lounger',
+        'cabana_canopy',
+        'boardroom_table',
+        'executive_chair',
+        'framed_painting',
+        'deco_vase',
+        'art_deco_rug',
+        'wall_sconce',
+        'crystal_chandelier',
+        'gold_throne',
+        'jet_interior_tile',
+        'vip_lounge_door',
+        'concierge_pet'
+      ];
+    }
+
+    function isClubExclusiveFurniture(t) {
+      return t in [
+        'vip_golden_trophy',
+        'vip_grand_piano',
+        'vip_hot_tub',
+        'vip_emerald_throne',
+        'gold_throne',
+        'jet_interior_tile',
+        'vip_lounge_door',
+        'crystal_chandelier',
+        'concierge_pet'
+      ];
+    }
+
+    function isSpecialtyFurnitureType(t) {
+      return t in [
+        'tie_dye_beanbag',
+        'lava_lamp',
+        'tie_dye_rug',
+        'beaded_curtain',
+        'shag_velvet_sofa',
+        'peace_neon_art'
+      ];
+    }
+
+    function isValidRotation(rot) {
+      return rot is int && rot in [0, 90, 180, 270];
+    }
+
+    function isValidZHeight(z) {
+      return (z is int || z is float) && z >= 0 && z <= 4;
+    }
+
+    function isValidFurnitureState(st) {
+      return st is string && st in ['on', 'off', 'open', 'closed', 'idle'];
+    }
+
+    function isValidFurniture(data, itemId) {
+      return data.keys().hasAll(['id', 'type', 'name', 'x', 'y', 'rotation', 'walkable', 'ownerId'])
+        && data.keys().hasOnly([
+          'id', 'type', 'name', 'x', 'y', 'rotation', 'walkable', 'ownerId',
+          'zHeight', 'state', 'diceValue', 'diceRolledAt', 'scoreA', 'scoreB',
+          'linkChannel', 'linkedRoomId', 'catalogId', 'isClubOnly',
+          'animAt', 'slotResult', 'variantSpec', 'customSpriteSpec'
+        ])
+        && isValidId(data.id)
+        && data.id == itemId
+        && isValidFurnitureType(data.type)
+        && data.name is string
+        && data.name.size() >= 1
+        && data.name.size() <= 48
+        && isValidCoord(data.x)
+        && isValidCoord(data.y)
+        && isValidRotation(data.rotation)
+        && data.walkable is bool
+        && isValidId(data.ownerId)
+        && (!('zHeight' in data) || isValidZHeight(data.zHeight))
+        && (!('state' in data) || isValidFurnitureState(data.state))
+        && (!('diceValue' in data) || (data.diceValue is int && data.diceValue >= 1 && data.diceValue <= 6))
+        && (!('diceRolledAt' in data) || ((data.diceRolledAt is int || data.diceRolledAt is float) && data.diceRolledAt >= 0))
+        && (!('scoreA' in data) || (data.scoreA is int && data.scoreA >= 0 && data.scoreA <= 99))
+        && (!('scoreB' in data) || (data.scoreB is int && data.scoreB >= 0 && data.scoreB <= 99))
+        && (!('linkChannel' in data) || (data.linkChannel is string && data.linkChannel.size() >= 1 && data.linkChannel.size() <= 12))
+        && (!('linkedRoomId' in data) || (data.linkedRoomId is string && data.linkedRoomId.size() <= 128 && (data.linkedRoomId == '' || isValidId(data.linkedRoomId))))
+        && (!('catalogId' in data) || (data.catalogId is string && data.catalogId.size() <= 64))
+        && (!('isClubOnly' in data) || data.isClubOnly is bool)
+        && (!('animAt' in data) || ((data.animAt is int || data.animAt is float) && data.animAt >= 0))
+        && (!('slotResult' in data) || (data.slotResult is string && data.slotResult.size() <= 16))
+        && (!('variantSpec' in data) || isValidFurnitureVariantSpec(data.variantSpec))
+        && (!('customSpriteSpec' in data) || isValidCustomSpriteSpec(data.customSpriteSpec));
+    }
+
+    function isValidReport(data, reportId) {
+      return data.keys().hasAll([
+          'id', 'reporterUid', 'reporterName', 'targetUid', 'targetName',
+          'roomId', 'roomName', 'reason', 'chatSnapshot', 'status', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'category', 'reporterUid', 'reporterName', 'targetUid', 'targetName',
+          'roomId', 'roomName', 'reason', 'chatSnapshot', 'status', 'resolvedBy', 'resolvedAt', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.id == reportId
+        && (!('category' in data) || (data.category is string && data.category in ['player', 'bug']))
+        && isValidId(data.reporterUid)
+        && data.reporterName is string && data.reporterName.size() >= 1 && data.reporterName.size() <= 24
+        && isValidId(data.targetUid)
+        && data.targetName is string && data.targetName.size() >= 1 && data.targetName.size() <= 24
+        && isValidId(data.roomId)
+        && data.roomName is string && data.roomName.size() >= 1 && data.roomName.size() <= 36
+        && data.reason is string && data.reason.size() >= 1 && data.reason.size() <= 240
+        && data.chatSnapshot is list && data.chatSnapshot.size() <= 15
+        && (data.chatSnapshot.size() == 0 || (data.chatSnapshot[0] is string && data.chatSnapshot[0].size() <= 200))
+        && data.status in ['open', 'resolved']
+        && (!('resolvedBy' in data) || (data.resolvedBy is string && data.resolvedBy.size() <= 24))
+        && (!('resolvedAt' in data) || data.resolvedAt is timestamp)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAuthAttempt(data, lowercaseName) {
+      return data.keys().hasAll(['username', 'failedCount', 'lockedUntilMs', 'updatedAt'])
+        && data.keys().hasOnly(['username', 'failedCount', 'lockedUntilMs', 'updatedAt'])
+        && isValidLowerUsername(data.username)
+        && data.username == lowercaseName
+        && data.failedCount is int
+        && data.failedCount >= 0
+        && data.failedCount <= 20
+        && (data.lockedUntilMs is int || data.lockedUntilMs is float)
+        && data.lockedUntilMs >= 0
+        && data.updatedAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidCatalogItem(data, itemId) {
+      return data.keys().hasAll([
+          'id', 'type', 'name', 'category', 'creditsPrice', 'tokensPrice',
+          'walkable', 'clubExclusive', 'isSeasonalActive', 'customSpriteSpec',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'type', 'name', 'category', 'creditsPrice', 'tokensPrice',
+          'walkable', 'clubExclusive', 'isSeasonalActive', 'customSpriteSpec',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id) && data.id == itemId
+        && data.type == 'custom_sprite'
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 48
+        && data.category in ['seating', 'tables', 'lighting', 'club_vip', 'walls_fences', 'retro_70s']
+        && data.creditsPrice is int && data.creditsPrice >= 5 && data.creditsPrice <= 50000
+        && data.tokensPrice is int && data.tokensPrice >= 250 && data.tokensPrice <= 5000000
+        && data.walkable is bool
+        && data.clubExclusive is bool
+        && data.isSeasonalActive is bool
+        && isValidCustomSpriteSpec(data.customSpriteSpec)
+        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 24
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidLiveEvent(data, eventId) {
+      return data.keys().hasAll([
+          'id', 'title', 'roomId', 'roomName', 'tokenMultiplier',
+          'isActive', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'title', 'description', 'roomId', 'roomName', 'tokenMultiplier',
+          'isActive', 'announcementText', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id) && data.id == eventId
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 48
+        && (!('description' in data) || (data.description is string && data.description.size() <= 140))
+        && isValidId(data.roomId)
+        && data.roomName is string && data.roomName.size() >= 1 && data.roomName.size() <= 36
+        && data.tokenMultiplier is int && data.tokenMultiplier in [1, 2, 3]
+        && data.isActive is bool
+        && (!('announcementText' in data) || (data.announcementText is string && data.announcementText.size() <= 180))
+        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 24
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidEventChest(data, chestId, roomId) {
+      return data.keys().hasAll([
+          'id', 'roomId', 'x', 'y', 'rewardCredits', 'rewardTokens',
+          'droppedBy', 'claimedByUids', 'maxClaims', 'expiresAtMs', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'roomId', 'x', 'y', 'rewardCredits', 'rewardTokens',
+          'droppedBy', 'claimedByUids', 'maxClaims', 'expiresAtMs', 'createdAt'
+        ])
+        && isValidId(data.id) && data.id == chestId
+        && data.roomId == roomId
+        && isValidCoord(data.x)
+        && isValidCoord(data.y)
+        && data.rewardCredits is int && data.rewardCredits >= 0 && data.rewardCredits <= 200
+        && data.rewardTokens is int && data.rewardTokens >= 0 && data.rewardTokens <= 5000
+        && data.droppedBy is string && data.droppedBy.size() >= 1 && data.droppedBy.size() <= 24
+        && data.claimedByUids is list && data.claimedByUids.size() <= 100
+        && (data.claimedByUids.size() == 0 || data.claimedByUids[0] is string)
+        && data.maxClaims is int && data.maxClaims >= 1 && data.maxClaims <= 100
+        && (data.expiresAtMs is int || data.expiresAtMs is float)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAppConfig(data) {
+      return data.keys().hasAll(['maintenanceMode', 'economyFreeze', 'softResetAt', 'updatedBy', 'updatedAt'])
+        && data.keys().hasOnly(['maintenanceMode', 'economyFreeze', 'softResetAt', 'updatedBy', 'updatedAt'])
+        && data.maintenanceMode is bool
+        && data.economyFreeze is bool
+        && (data.softResetAt is int || data.softResetAt is float) && data.softResetAt >= 0
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 24
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMatchQueueEntry(data, uid) {
+      return data.keys().hasAll(['uid', 'username', 'mode', 'eloRating', 'roomId', 'joinedAtMs', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'username', 'mode', 'eloRating', 'roomId', 'joinedAtMs', 'matchedMatchId', 'updatedAt'])
+        && isValidId(data.uid) && data.uid == uid
+        && data.username is string && data.username.size() >= 1 && data.username.size() <= 24
+        && data.mode in ['turf_wars', 'rapid_chairs', 'tictactoe', 'checkers', 'battleship']
+        && data.eloRating is int && data.eloRating >= 0 && data.eloRating <= 5000
+        && isValidId(data.roomId)
+        && (data.joinedAtMs is int || data.joinedAtMs is float)
+        && (!('matchedMatchId' in data) || (data.matchedMatchId is string && data.matchedMatchId.size() <= 128))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMiniGameMatch(data, matchId) {
+      return data.keys().hasAll([
+          'id', 'gameType', 'roomId', 'uidA', 'usernameA', 'participantIds',
+          'wagerCurrency', 'wagerAmount', 'status', 'boardState', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'gameType', 'roomId', 'uidA', 'usernameA', 'uidB', 'usernameB',
+          'participantIds', 'wagerCurrency', 'wagerAmount', 'status',
+          'turnUid', 'winnerUid', 'boardState', 'settledA', 'settledB', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id) && data.id == matchId
+        && data.gameType in ['tictactoe', 'checkers', 'battleship']
+        && isValidId(data.roomId)
+        && isValidId(data.uidA)
+        && data.usernameA is string && data.usernameA.size() >= 1 && data.usernameA.size() <= 24
+        && (!('uidB' in data) || (data.uidB is string && data.uidB.size() <= 128))
+        && (!('usernameB' in data) || (data.usernameB is string && data.usernameB.size() <= 24))
+        && data.participantIds is list && data.participantIds.size() >= 1 && data.participantIds.size() <= 2
+        && data.participantIds[0] is string
+        && data.wagerCurrency in ['free', 'tokens', 'credits']
+        && data.wagerAmount is int && data.wagerAmount >= 0 && data.wagerAmount <= 5000
+        && data.status in ['waiting', 'active', 'finished', 'cancelled']
+        && (!('turnUid' in data) || (data.turnUid is string && data.turnUid.size() <= 128))
+        && (!('winnerUid' in data) || (data.winnerUid is string && data.winnerUid.size() <= 128))
+        && data.boardState is map
+        && (!('settledA' in data) || data.settledA is bool)
+        && (!('settledB' in data) || data.settledB is bool)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidLeaderboardPeriod(data, periodId) {
+      return data.keys().hasAll(['periodId', 'type', 'entries', 'claimedByUids', 'updatedAt'])
+        && data.keys().hasOnly(['periodId', 'type', 'entries', 'claimedByUids', 'updatedAt'])
+        && isValidId(data.periodId) && data.periodId == periodId
+        && data.type in ['daily', 'weekly', 'monthly']
+        && data.entries is map
+        && data.claimedByUids is list && data.claimedByUids.size() <= 200
+        && (data.claimedByUids.size() == 0 || data.claimedByUids[0] is string)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidArenaState(data, stateId) {
+      return data.keys().hasAll(['id', 'matchActive', 'updatedAt'])
+        && data.keys().hasOnly([
+          'id', 'matchActive', 'phase', 'round', 'endsAtMs', 'nextBeatAtMs',
+          'redScore', 'blueScore', 'tiles', 'chairCoords', 'activeUids', 'lineUids',
+          'winnerUid', 'winnerName', 'prizeCredits', 'updatedAt'
+        ])
+        && data.id == stateId && stateId in ['turf', 'rapid_chairs']
+        && data.matchActive is bool
+        && (!('phase' in data) || (data.phase is string && data.phase.size() <= 24))
+        && (!('round' in data) || (data.round is int && data.round >= 0 && data.round <= 99))
+        && (!('endsAtMs' in data) || (data.endsAtMs is int || data.endsAtMs is float))
+        && (!('nextBeatAtMs' in data) || (data.nextBeatAtMs is int || data.nextBeatAtMs is float))
+        && (!('redScore' in data) || (data.redScore is int && data.redScore >= 0 && data.redScore <= 999))
+        && (!('blueScore' in data) || (data.blueScore is int && data.blueScore >= 0 && data.blueScore <= 999))
+        && (!('tiles' in data) || data.tiles is map)
+        && (!('chairCoords' in data) || (data.chairCoords is list && data.chairCoords.size() <= 24 && (data.chairCoords.size() == 0 || data.chairCoords[0] is map)))
+        && (!('activeUids' in data) || (data.activeUids is list && data.activeUids.size() <= 32 && (data.activeUids.size() == 0 || data.activeUids[0] is string)))
+        && (!('lineUids' in data) || (data.lineUids is list && data.lineUids.size() <= 32 && (data.lineUids.size() == 0 || data.lineUids[0] is string)))
+        && (!('winnerUid' in data) || (data.winnerUid is string && data.winnerUid.size() <= 128))
+        && (!('winnerName' in data) || (data.winnerName is string && data.winnerName.size() <= 24))
+        && (!('prizeCredits' in data) || (data.prizeCredits is int && data.prizeCredits >= 0 && data.prizeCredits <= 100))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTradeUserSettlement(uid) {
+      let tradeBefore = get(/databases/$(database)/documents/trades/$(incoming().lastTradeId)).data;
+      let tradeAfter = getAfter(/databases/$(database)/documents/trades/$(incoming().lastTradeId)).data;
+      return !isEconomyFrozen()
+        && incoming().diff(existing()).affectedKeys().hasOnly(['credits', 'tokens', 'lastTradeId'])
+        && 'lastTradeId' in incoming()
+        && isValidId(incoming().lastTradeId)
+        && tradeBefore.status == 'open'
+        && tradeBefore.acceptA == true
+        && tradeBefore.acceptB == true
+        && (tradeBefore.confirmA == true || tradeBefore.confirmB == true)
+        && request.auth.uid in tradeBefore.participantIds
+        && tradeAfter.status == 'completed'
+        && tradeAfter.confirmA == true
+        && tradeAfter.confirmB == true
+        && (
+          (
+            uid == tradeBefore.uidA
+            && existing().credits >= tradeBefore.offerA.credits
+            && existing().tokens >= tradeBefore.offerA.tokens
+            && incoming().credits == existing().credits - tradeBefore.offerA.credits + tradeBefore.offerB.credits
+            && incoming().tokens == existing().tokens - tradeBefore.offerA.tokens + tradeBefore.offerB.tokens
+          )
+          || (
+            uid == tradeBefore.uidB
+            && existing().credits >= tradeBefore.offerB.credits
+            && existing().tokens >= tradeBefore.offerB.tokens
+            && incoming().credits == existing().credits - tradeBefore.offerB.credits + tradeBefore.offerA.credits
+            && incoming().tokens == existing().tokens - tradeBefore.offerB.tokens + tradeBefore.offerA.tokens
+          )
+        );
+    }
+
+    function isCatalogPurchaseProof(uid) {
+      let userBefore = get(/databases/$(database)/documents/users/$(uid)).data;
+      let userAfter = getAfter(/databases/$(database)/documents/users/$(uid)).data;
+      return userAfter.credits <= userBefore.credits - 1
+        || userAfter.tokens <= userBefore.tokens - 50
+        || userAfter.get('memberPoints', 0) <= userBefore.get('memberPoints', 0) - 5;
+    }
+
+    function isTierRewardInventoryProof(uid) {
+      let userBefore = get(/databases/$(database)/documents/users/$(uid)).data;
+      let userAfter = getAfter(/databases/$(database)/documents/users/$(uid)).data;
+      return (isActiveClubUserDoc(userBefore) || isTargetOwnerDoc(userBefore))
+        && userAfter.get('claimedTierRewards', []).size() > userBefore.get('claimedTierRewards', []).size();
+    }
+
+    function isRoomPickupProof(uid, itemId) {
+      return exists(/databases/$(database)/documents/player_status/$(uid))
+        && isValidRoomPickupMatch(
+          get(/databases/$(database)/documents/player_status/$(uid)).data.currentRoomId,
+          itemId
+        );
+    }
+
+    function isValidRoomPickupMatch(roomId, itemId) {
+      return isValidId(roomId)
+        && exists(/databases/$(database)/documents/rooms/$(roomId)/furniture/$(itemId))
+        && !existsAfter(/databases/$(database)/documents/rooms/$(roomId)/furniture/$(itemId));
+    }
+
+    function isTradeReceiveProof(uid) {
+      let userAfter = getAfter(/databases/$(database)/documents/users/$(uid)).data;
+      return 'lastTradeId' in userAfter
+        && isValidId(userAfter.lastTradeId)
+        && isTradeUnsyncedForUser(uid, userAfter.lastTradeId);
+    }
+
+    function isTradeUnsyncedForUser(uid, tradeId) {
+      let trBefore = get(/databases/$(database)/documents/trades/$(tradeId)).data;
+      let trAfter = getAfter(/databases/$(database)/documents/trades/$(tradeId)).data;
+      return trAfter.status == 'completed'
+        && (
+          (uid == trBefore.uidA && trBefore.syncedA == false && trAfter.syncedA == true)
+          || (uid == trBefore.uidB && trBefore.syncedB == false && trAfter.syncedB == true)
+        );
+    }
+
+    // --- Username Uniqueness Registry ---
+    match /usernames/{lowercaseName} {
+      allow get: if isValidLowerUsername(lowercaseName);
+      allow list: if false;
+
+      allow create: if isSignedIn()
+        && isValidLowerUsername(lowercaseName)
+        && isValidUsernameClaim(incoming(), lowercaseName);
+
+      allow update: if false;
+
+      allow delete: if isSignedIn()
+        && isValidLowerUsername(lowercaseName)
+        && existing().uid == request.auth.uid;
+    }
+
+    // --- Public Online Presence & Follow Directory ---
+    match /player_status/{uid} {
+      allow get: if isSignedIn() && isValidId(uid);
+      allow list: if false;
+
+      allow create, update: if isSignedIn()
+        && isValidId(uid)
+        && request.auth.uid == uid
+        && isValidPlayerStatus(incoming(), uid);
+
+      allow delete: if false;
+    }
+
+    // --- Global Admin Bootstrap Singleton ---
+    match /app_meta/bootstrap {
+      allow get: if isSignedIn();
+      allow list: if false;
+
+      allow create: if isSignedIn()
+        && incoming().keys().hasAll(['firstAdminUid', 'createdAt'])
+        && incoming().keys().hasOnly(['firstAdminUid', 'createdAt'])
+        && isValidId(incoming().firstAdminUid)
+        && incoming().firstAdminUid == request.auth.uid
+        && incoming().createdAt == request.time;
+
+      allow update, delete: if false;
+    }
+
+    // --- Login Brute-Force Attempt Tracker ---
+    match /auth_attempts/{lowercaseName} {
+      allow get: if isValidLowerUsername(lowercaseName);
+      allow list, delete: if false;
+
+      allow create, update: if isValidLowerUsername(lowercaseName)
+        && isValidAuthAttempt(incoming(), lowercaseName);
+    }
+
+    // --- Global Server Operations Config (server_state/config & legacy app_meta/config) ---
+    match /server_state/{docId} {
+      allow get: if isSignedIn() && docId == 'config';
+      allow list: if false;
+
+      allow create: if isSignedIn()
+        && docId == 'config'
+        && isGlobalGmOrAbove()
+        && isValidAppConfig(incoming())
+        && incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn()
+        && docId == 'config'
+        && isValidAppConfig(incoming())
+        && incoming().updatedAt == request.time
+        && (
+          isOwner()
+          || (
+            isGlobalAdmin()
+            && incoming().economyFreeze == existing().economyFreeze
+          )
+          || (
+            isGlobalGmOrAbove()
+            && incoming().economyFreeze == existing().economyFreeze
+            && incoming().maintenanceMode == existing().maintenanceMode
+            && incoming().diff(existing()).affectedKeys().hasOnly(['softResetAt', 'updatedBy', 'updatedAt'])
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // --- Global Server Operations Config (Legacy Mirror) ---
+    match /app_meta/config {
+      allow get: if isSignedIn();
+      allow list: if false;
+
+      allow create: if isSignedIn()
+        && isGlobalGmOrAbove()
+        && isValidAppConfig(incoming())
+        && incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidAppConfig(incoming())
+        && incoming().updatedAt == request.time
+        && (
+          isOwner()
+          || (
+            isGlobalAdmin()
+            && incoming().economyFreeze == existing().economyFreeze
+          )
+          || (
+            isGlobalGmOrAbove()
+            && incoming().economyFreeze == existing().economyFreeze
+            && incoming().maintenanceMode == existing().maintenanceMode
+            && incoming().diff(existing()).affectedKeys().hasOnly(['softResetAt', 'updatedBy', 'updatedAt'])
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // --- Immutable Staff Audit Log ---
+    match /staff_logs/{logId} {
+      allow get: if isSignedIn() && isValidId(logId) && isGlobalAdmin();
+      allow list: if isSignedIn() && resource.data.timestamp > timestamp.date(1970, 1, 1) && isGlobalAdmin();
+
+      allow create: if isSignedIn()
+        && isValidId(logId)
+        && isGlobalModOrAbove()
+        && isValidStaffLog(incoming(), logId)
+        && incoming().actorUid == request.auth.uid
+        && incoming().timestamp == request.time;
+
+      allow update, delete: if false;
+    }
+
+    // --- Player Reports & Alpha Bug Triage Reports ---
+    match /reports/{reportId} {
+      allow get: if isSignedIn() && isValidId(reportId) && isGlobalModOrAbove();
+      allow list: if isSignedIn() && resource.data.createdAt > timestamp.date(1970, 1, 1) && isGlobalModOrAbove();
+
+      allow create: if isSignedIn()
+        && isValidId(reportId)
+        && !isCallerGloballyBanned()
+        && isValidReport(incoming(), reportId)
+        && incoming().reporterUid == request.auth.uid
+        && incoming().status == 'open'
+        && incoming().createdAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidId(reportId)
+        && isGlobalModOrAbove()
+        && isValidReport(incoming(), reportId)
+        && incoming().id == existing().id
+        && incoming().reporterUid == existing().reporterUid
+        && incoming().targetUid == existing().targetUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'resolvedBy', 'resolvedAt']);
+
+      allow delete: if false;
+    }
+
+    match /alpha_reports/{reportId} {
+      allow get: if isSignedIn() && isValidId(reportId) && isGlobalModOrAbove();
+      allow list: if isSignedIn() && resource.data.createdAt > timestamp.date(1970, 1, 1) && isGlobalModOrAbove();
+
+      allow create: if isSignedIn()
+        && isValidId(reportId)
+        && !isCallerGloballyBanned()
+        && isValidReport(incoming(), reportId)
+        && incoming().reporterUid == request.auth.uid
+        && incoming().status == 'open'
+        && incoming().createdAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidId(reportId)
+        && isGlobalModOrAbove()
+        && isValidReport(incoming(), reportId)
+        && incoming().id == existing().id
+        && incoming().reporterUid == existing().reporterUid
+        && incoming().targetUid == existing().targetUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'resolvedBy', 'resolvedAt']);
+
+      allow delete: if false;
+    }
+
+    // --- Dynamic No-Code Procedural Catalog Items ---
+    match /catalog_items/{itemId} {
+      allow get: if isSignedIn() && isValidId(itemId);
+      allow list: if isSignedIn() && resource.data.createdAt > timestamp.date(1970, 1, 1);
+
+      allow create: if isSignedIn()
+        && isValidId(itemId)
+        && isGlobalGmOrAbove()
+        && isValidCatalogItem(incoming(), itemId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidId(itemId)
+        && isGlobalGmOrAbove()
+        && isValidCatalogItem(incoming(), itemId)
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'category', 'creditsPrice', 'tokensPrice',
+          'clubExclusive', 'isSeasonalActive', 'customSpriteSpec', 'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() && isValidId(itemId) && isOwner();
+    }
+
+    // --- Live Event Orchestrator Banners & Multipliers ---
+    match /live_events/{eventId} {
+      allow get: if isSignedIn() && isValidId(eventId);
+      allow list: if isSignedIn() && resource.data.createdAt > timestamp.date(1970, 1, 1);
+
+      allow create: if isSignedIn()
+        && isValidId(eventId)
+        && isGlobalGmOrAbove()
+        && isValidLiveEvent(incoming(), eventId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidId(eventId)
+        && isGlobalGmOrAbove()
+        && isValidLiveEvent(incoming(), eventId)
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'description', 'roomId', 'roomName',
+          'tokenMultiplier', 'isActive', 'announcementText', 'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() && isValidId(eventId) && isOwner();
+    }
+
+    // --- Global ELO Matchmaking Queue ---
+    match /matchmaking_queue/{uid} {
+      allow get: if isSignedIn() && isValidId(uid);
+      allow list: if isSignedIn() && resource.data.mode is string;
+
+      allow create: if isSignedIn()
+        && isValidId(uid)
+        && request.auth.uid == uid
+        && !isCallerGloballyBanned()
+        && isValidMatchQueueEntry(incoming(), uid)
+        && incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidId(uid)
+        && isValidMatchQueueEntry(incoming(), uid)
+        && incoming().uid == existing().uid
+        && incoming().updatedAt == request.time
+        && (
+          request.auth.uid == uid
+          || incoming().diff(existing()).affectedKeys().hasOnly(['matchedMatchId', 'updatedAt'])
+        );
+
+      allow delete: if isSignedIn()
+        && isValidId(uid)
+        && (request.auth.uid == uid || isGlobalModOrAbove());
+    }
+
+    // --- Interactive Parlor Tabletop Matches (Tic-Tac-Toe, Checkers, Battleship) ---
+    match /minigame_matches/{matchId} {
+      allow get: if isSignedIn() && isValidId(matchId);
+      allow list: if isSignedIn() && resource.data.roomId is string;
+
+      allow create: if isSignedIn()
+        && isValidId(matchId)
+        && !isCallerGloballyBanned()
+        && isValidMiniGameMatch(incoming(), matchId)
+        && incoming().uidA == request.auth.uid
+        && request.auth.uid in incoming().participantIds
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidId(matchId)
+        && isValidMiniGameMatch(incoming(), matchId)
+        && incoming().id == existing().id
+        && incoming().gameType == existing().gameType
+        && incoming().uidA == existing().uidA
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          request.auth.uid in existing().participantIds
+          || (
+            existing().status == 'waiting'
+            && (!('uidB' in existing()) || existing().uidB == '')
+            && incoming().uidB == request.auth.uid
+            && request.auth.uid in incoming().participantIds
+          )
+        );
+
+      allow delete: if isSignedIn()
+        && isValidId(matchId)
+        && (request.auth.uid == existing().uidA || isGlobalModOrAbove());
+    }
+
+    // --- UTC-Rolling Leaderboards (Daily / Weekly / Monthly) ---
+    match /leaderboards/{periodId} {
+      allow get: if isSignedIn() && isValidId(periodId);
+      allow list: if isSignedIn() && resource.data.type is string;
+
+      allow create: if isSignedIn()
+        && isValidId(periodId)
+        && !isCallerGloballyBanned()
+        && isValidLeaderboardPeriod(incoming(), periodId)
+        && incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidId(periodId)
+        && !isCallerGloballyBanned()
+        && isValidLeaderboardPeriod(incoming(), periodId)
+        && incoming().periodId == existing().periodId
+        && incoming().type == existing().type
+        && incoming().updatedAt == request.time;
+
+      allow delete: if isSignedIn() && isValidId(periodId) && isOwner();
+    }
+
+    // --- Permanent Player Accounts, Dual-Currency Wallets, 4-Tier Staff Roles & Inventory ---
+    match /users/{uid} {
+      allow get: if isSignedIn()
+        && isValidId(uid)
+        && (request.auth.uid == uid || isGlobalModOrAbove());
+
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && isValidId(uid)
+        && request.auth.uid == uid
+        && isValidUserProfile(incoming(), uid)
+        && (!('isBanned' in incoming()) || incoming().isBanned == false)
+        && (!('isMuted' in incoming()) || incoming().isMuted == false)
+        && (
+          !('staffRole' in incoming())
+          || incoming().staffRole == 'user'
+          || (
+            incoming().staffRole in ['owner', 'super_admin']
+            && incoming().username.lower() == 'snarf'
+          )
+          || (
+            incoming().staffRole == 'admin'
+            && existsAfter(/databases/$(database)/documents/app_meta/bootstrap)
+            && getAfter(/databases/$(database)/documents/app_meta/bootstrap).data.firstAdminUid == uid
+          )
+        )
+        && incoming().credits == 50
+        && incoming().tokens == 1000
+        && (!('memberPoints' in incoming()) || incoming().memberPoints == 250)
+        && (!('memberTenureMonths' in incoming()) || incoming().memberTenureMonths == 1)
+        && (!('claimedTierRewards' in incoming()) || incoming().claimedTierRewards.size() == 0)
+        && (!('ownedWardrobeIds' in incoming()) || incoming().ownedWardrobeIds.size() == 0)
+        && (!('isClubMember' in incoming()) || incoming().isClubMember == false)
+        && hasClubAccessForAvatar(incoming(), incoming().avatar)
+        && incoming().createdAt == request.time
+        && incoming().lastDailyClaim <= request.time
+        && existsAfter(/databases/$(database)/documents/usernames/$(incoming().username.lower()));
+
+      allow update: if isSignedIn()
+        && isValidId(uid)
+        && isValidUserProfile(incoming(), uid)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && (
+          (
+            request.auth.uid == uid
+            && !isCallerGloballyBanned()
+            && (
+              // Action 1: Update Wardrobe / Avatar look
+              (
+                incoming().diff(existing()).affectedKeys().hasOnly(['avatar'])
+                && hasClubAccessForAvatar(existing(), incoming().avatar)
+                && incoming().username == existing().username
+                && incoming().credits == existing().credits
+                && incoming().tokens == existing().tokens
+                && incoming().lastDailyClaim == existing().lastDailyClaim
+              )
+              // Action 1b: Update Player Motto (max 50 chars)
+              || (
+                incoming().diff(existing()).affectedKeys().hasOnly(['motto'])
+                && 'motto' in incoming()
+              )
+              // Action 1c: Staff On-Duty Badge Toggle
+              || (
+                isGlobalModOrAbove()
+                && incoming().diff(existing()).affectedKeys().hasOnly(['isOnDuty'])
+                && 'isOnDuty' in incoming()
+                && incoming().isOnDuty is bool
+              )
+              // Action 1d: Clear Own Pending Staff Summon
+              || (
+                incoming().diff(existing()).affectedKeys().hasOnly(['summonRoomId'])
+                && incoming().summonRoomId == ''
+              )
+              // Action 2: Claim Daily (+250 Tokens standard, +500 for Club VIP, up to 3x during Live Event)
+              || (
+                incoming().diff(existing()).affectedKeys().hasOnly(['tokens', 'lastDailyClaim'])
+                && existing().lastDailyClaim <= request.time - duration.value(24, 'h')
+                && incoming().lastDailyClaim == request.time
+                && incoming().tokens > existing().tokens
+                && incoming().tokens <= existing().tokens + 1500
+              )
+              // Action 3: Passive lounge earning (+10 to +30 Tokens with Live Event multiplier, 5-min server cooldown)
+              || (
+                incoming().diff(existing()).affectedKeys().hasOnly(['tokens', 'lastClaimAt'])
+                && (!('lastClaimAt' in existing()) || existing().lastClaimAt <= request.time - duration.value(270, 's'))
+                && incoming().lastClaimAt == request.time
+                && incoming().tokens > existing().tokens
+                && incoming().tokens <= existing().tokens + 50
+              )
+              || (
+                incoming().diff(existing()).affectedKeys().hasOnly(['tokens'])
+                && incoming().tokens > existing().tokens
+                && incoming().tokens <= existing().tokens + 50
+              )
+              // Action 3b: Self Mini-Game / Event Chest / Leaderboard / Casino Rewards & Wagers
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['credits'])
+                && incoming().credits >= existing().credits - 500
+                && incoming().credits <= existing().credits + 250
+              )
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['tokens'])
+                && incoming().tokens >= existing().tokens - 5000
+                && incoming().tokens <= existing().tokens + 5000
+              )
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['credits', 'tokens'])
+                && incoming().credits >= existing().credits - 500
+                && incoming().credits <= existing().credits + 250
+                && incoming().tokens >= existing().tokens - 5000
+                && incoming().tokens <= existing().tokens + 5000
+              )
+              || (
+                (
+                  incoming().diff(existing()).affectedKeys().hasOnly(['eloRating'])
+                  || incoming().diff(existing()).affectedKeys().hasOnly(['eloRating', 'turfRating'])
+                )
+                && incoming().eloRating is int
+                && incoming().eloRating >= existing().get('eloRating', 1000) - 60
+                && incoming().eloRating <= existing().get('eloRating', 1000) + 60
+                && (
+                  !('turfRating' in incoming())
+                  || (
+                    incoming().turfRating is int
+                    && incoming().turfRating >= existing().get('turfRating', 1000) - 60
+                    && incoming().turfRating <= existing().get('turfRating', 1000) + 60
+                  )
+                )
+              )
+              // Action 4a: Change Username paying 50 Credits
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'credits'])
+                && incoming().username != existing().username
+                && existing().credits >= 50
+                && incoming().credits == existing().credits - 50
+                && existsAfter(/databases/$(database)/documents/usernames/$(incoming().username.lower()))
+              )
+              // Action 4b: Change Username paying 2,500 Tokens
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'tokens'])
+                && incoming().username != existing().username
+                && existing().tokens >= 2500
+                && incoming().tokens == existing().tokens - 2500
+                && existsAfter(/databases/$(database)/documents/usernames/$(incoming().username.lower()))
+              )
+              // Action 5a: Catalog Furniture / Bundle Purchase with Credits (min 1 Credit)
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['credits'])
+                && incoming().credits >= 0
+                && incoming().credits <= existing().credits - 1
+              )
+              // Action 5b: Catalog Furniture / Bundle Purchase with Tokens (min 50 Tokens)
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['tokens'])
+                && incoming().tokens >= 0
+                && incoming().tokens <= existing().tokens - 50
+              )
+              // Action 5b2: Catalog Furniture Purchase with Executive Member Points (min 5 MP)
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['memberPoints'])
+                && 'memberPoints' in incoming()
+                && incoming().memberPoints >= 0
+                && incoming().memberPoints <= existing().get('memberPoints', 0) - 5
+              )
+              // Action 5c: Wardrobe Catalog Unlock (Credits or Member Points + ownedWardrobeIds)
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['credits', 'ownedWardrobeIds'])
+                && incoming().credits >= 0
+                && incoming().credits <= existing().credits - 1
+                && 'ownedWardrobeIds' in incoming()
+                && incoming().ownedWardrobeIds is list
+                && incoming().ownedWardrobeIds.size() == existing().get('ownedWardrobeIds', []).size() + 1
+              )
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['memberPoints', 'ownedWardrobeIds'])
+                && 'memberPoints' in incoming()
+                && incoming().memberPoints >= 0
+                && incoming().memberPoints <= existing().get('memberPoints', 0) - 5
+                && 'ownedWardrobeIds' in incoming()
+                && incoming().ownedWardrobeIds is list
+                && incoming().ownedWardrobeIds.size() == existing().get('ownedWardrobeIds', []).size() + 1
+              )
+              // Action 5d: Claim Executive VIP Tier Milestone Reward (1m / 3m / 6m)
+              || (
+                (isActiveClubUserDoc(existing()) || isOwner())
+                && (
+                  incoming().diff(existing()).affectedKeys().hasOnly(['claimedTierRewards'])
+                  || (
+                    incoming().diff(existing()).affectedKeys().hasOnly(['claimedTierRewards', 'ownedWardrobeIds'])
+                    && 'ownedWardrobeIds' in incoming()
+                    && incoming().ownedWardrobeIds is list
+                    && incoming().ownedWardrobeIds.size() >= existing().get('ownedWardrobeIds', []).size()
+                    && incoming().ownedWardrobeIds.size() <= existing().get('ownedWardrobeIds', []).size() + 4
+                  )
+                )
+                && 'claimedTierRewards' in incoming()
+                && incoming().claimedTierRewards is list
+                && incoming().claimedTierRewards.size() == existing().get('claimedTierRewards', []).size() + 1
+              )
+              // Action 6a: Plaza Store Sandbox Credit Pack Purchase (+50, +130, +300, +850 Credits)
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['credits'])
+                && (incoming().credits - existing().credits) in [50, 130, 300, 850]
+              )
+              // Action 6b: Join / Renew Plaza Club VIP via Sandbox Test Purchase (+30 days)
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['isClubMember', 'clubExpiresAt'])
+                && incoming().isClubMember == true
+                && 'clubExpiresAt' in incoming()
+                && incoming().clubExpiresAt > request.time
+                && incoming().clubExpiresAt <= request.time + duration.value(366, 'd')
+              )
+              // Action 6c: Join / Renew Plaza Club VIP paying 100 Credits
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['credits', 'isClubMember', 'clubExpiresAt'])
+                && existing().credits >= 100
+                && incoming().credits == existing().credits - 100
+                && incoming().isClubMember == true
+                && 'clubExpiresAt' in incoming()
+                && incoming().clubExpiresAt > request.time
+                && incoming().clubExpiresAt <= request.time + duration.value(366, 'd')
+              )
+              // Action 6d: Join / Renew Plaza Club VIP paying 5,000 Tokens
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && incoming().diff(existing()).affectedKeys().hasOnly(['tokens', 'isClubMember', 'clubExpiresAt'])
+                && existing().tokens >= 5000
+                && incoming().tokens == existing().tokens - 5000
+                && incoming().isClubMember == true
+                && 'clubExpiresAt' in incoming()
+                && incoming().clubExpiresAt > request.time
+                && incoming().clubExpiresAt <= request.time + duration.value(366, 'd')
+              )
+              // Automatic Owner elevation strictly for the Snarf owner account (Dev staff toggle removed)
+              || (
+                incoming().diff(existing()).affectedKeys().hasOnly(['staffRole'])
+                && existing().username.lower() == 'snarf'
+                && incoming().staffRole == 'owner'
+              )
+            )
+          )
+          // Action 7: Atomic Two-Sided Trade Currency Settlement
+          || isTradeUserSettlement(uid)
+          // Action 8a: Global Staff Ban / Temp Ban / Unban (Owner immune!)
+          || (
+            isGlobalModOrAbove()
+            && uid != request.auth.uid
+            && !isTargetOwnerDoc(existing())
+            && (!('staffRole' in existing()) || existing().staffRole != 'admin' || isOwner())
+            && (
+              (
+                incoming().diff(existing()).affectedKeys().hasOnly(['isBanned', 'tempBanUntilMs', 'banReason'])
+                && 'isBanned' in incoming() && incoming().isBanned is bool
+                && (
+                  isGlobalGmOrAbove()
+                  || incoming().isBanned == false
+                  || ('tempBanUntilMs' in incoming() && incoming().tempBanUntilMs > request.time.toMillis())
+                )
+              )
+              || (
+                isGlobalGmOrAbove()
+                && incoming().diff(existing()).affectedKeys().hasOnly(['isBanned'])
+                && 'isBanned' in incoming() && incoming().isBanned is bool
+              )
+            )
+          )
+          // Action 8b: Global Staff Global Mute / Unmute (Owner immune!)
+          || (
+            isGlobalModOrAbove()
+            && uid != request.auth.uid
+            && !isTargetOwnerDoc(existing())
+            && (!('staffRole' in existing()) || existing().staffRole != 'admin' || isOwner())
+            && incoming().diff(existing()).affectedKeys().hasOnly(['isMuted'])
+            && 'isMuted' in incoming()
+            && incoming().isMuted is bool
+          )
+          // Action 8c: Tiered Currency Grants & Owner Unlimited Grants / Deductions
+          || (
+            incoming().diff(existing()).affectedKeys().hasOnly(['credits'])
+            && (
+              isOwner()
+              || (isGlobalAdmin() && incoming().credits > existing().credits && incoming().credits <= existing().credits + 500)
+              || (isGlobalGmOrAbove() && incoming().credits > existing().credits && incoming().credits <= existing().credits + 50)
+            )
+          )
+          || (
+            incoming().diff(existing()).affectedKeys().hasOnly(['tokens'])
+            && (
+              isOwner()
+              || (isGlobalAdmin() && incoming().tokens > existing().tokens && incoming().tokens <= existing().tokens + 50000)
+              || (isGlobalGmOrAbove() && incoming().tokens > existing().tokens && incoming().tokens <= existing().tokens + 5000)
+            )
+          )
+          // Action 8d: GM / Admin / Owner Grant Plaza Club VIP Days
+          || (
+            isGlobalGmOrAbove()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['isClubMember', 'clubExpiresAt'])
+            && incoming().isClubMember == true
+            && 'clubExpiresAt' in incoming()
+            && incoming().clubExpiresAt > request.time
+            && incoming().clubExpiresAt <= request.time + duration.value(730, 'd')
+          )
+          // Action 8e: Admin (mod/gm) & Owner (admin/gm/mod) Staff Role Promotion / Demotion (Owner immune!)
+          || (
+            isGlobalAdmin()
+            && uid != request.auth.uid
+            && !isTargetOwnerDoc(existing())
+            && (!('staffRole' in existing()) || existing().staffRole != 'admin' || isOwner())
+            && incoming().diff(existing()).affectedKeys().hasOnly(['staffRole'])
+            && 'staffRole' in incoming()
+            && isValidStaffRole(incoming().staffRole)
+            && !(incoming().staffRole in ['owner', 'super_admin'])
+            && (incoming().staffRole != 'admin' || isOwner())
+          )
+          // Action 8f: Staff Summon Player into Current Room (GM+)
+          || (
+            isGlobalGmOrAbove()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['summonRoomId', 'summonRoomName', 'summonBy', 'summonAt'])
+          )
+          // Action 8g: Owner-only Specialty Unlock Grants (Custom Wardrobe / 70s Furni Pack)
+          || (
+            isOwner()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['hasCustomWardrobe', 'hasSpecialtyFurni'])
+          )
+          || (
+            isOwner()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['hasCustomWardrobe'])
+          )
+          || (
+            isOwner()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['hasSpecialtyFurni'])
+          )
+        );
+
+      allow delete: if false;
+
+      // Owned Tradable Furniture Inventory
+      match /inventory/{itemId} {
+        allow get: if isSignedIn() && isValidId(uid) && isValidId(itemId) && request.auth.uid == uid;
+        allow list: if isSignedIn() && request.auth.uid == uid;
+
+        allow create: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(itemId)
+          && request.auth.uid == uid
+          && isValidInventoryItem(incoming(), itemId)
+          && (
+            (
+              (!isEconomyFrozen() || isOwner())
+              && isCatalogPurchaseProof(uid)
+              && ((!isClubExclusiveFurniture(incoming().type) && !incoming().get('isClubOnly', false)) || isSignedInUserClubMember() || isOwner())
+              && (!isSpecialtyFurnitureType(incoming().type) || isSignedInUserSpecialtyUnlocked())
+            )
+            || (
+              isTierRewardInventoryProof(uid)
+              && incoming().type in ['crystal_chandelier', 'concierge_pet']
+            )
+            || isTradeReceiveProof(uid)
+            || isRoomPickupProof(uid, itemId)
+          );
+
+        allow update: if false;
+
+        allow delete: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(itemId)
+          && request.auth.uid == uid;
+      }
+
+      // Friends & Friend Requests
+      match /friends/{friendUid} {
+        allow get: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(friendUid)
+          && (request.auth.uid == uid || request.auth.uid == friendUid);
+
+        allow list: if isSignedIn() && request.auth.uid == uid;
+
+        allow create: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(friendUid)
+          && uid != friendUid
+          && isValidFriendLink(incoming(), friendUid)
+          && (
+            (request.auth.uid == uid && incoming().status == 'pending_outgoing')
+            || (request.auth.uid == friendUid && incoming().status == 'pending_incoming')
+          );
+
+        allow update: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(friendUid)
+          && uid != friendUid
+          && isValidFriendLink(incoming(), friendUid)
+          && (request.auth.uid == uid || request.auth.uid == friendUid)
+          && incoming().uid == existing().uid
+          && incoming().status == 'accepted';
+
+        allow delete: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(friendUid)
+          && (request.auth.uid == uid || request.auth.uid == friendUid);
+      }
+    }
+
+    // --- Real-Time Two-Sided Player-to-Player Trades ---
+    match /trades/{tradeId} {
+      allow get: if isSignedIn()
+        && isValidId(tradeId)
+        && request.auth.uid in resource.data.participantIds;
+
+      allow list: if isSignedIn()
+        && request.auth.uid in resource.data.participantIds;
+
+      allow create: if isSignedIn()
+        && isValidId(tradeId)
+        && !isCallerGloballyBanned()
+        && isValidTrade(incoming(), tradeId)
+        && incoming().uidA == request.auth.uid
+        && incoming().status == 'open'
+        && incoming().acceptA == false
+        && incoming().acceptB == false
+        && incoming().confirmA == false
+        && incoming().confirmB == false
+        && incoming().syncedA == false
+        && incoming().syncedB == false
+        && incoming().createdAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidId(tradeId)
+        && isValidTrade(incoming(), tradeId)
+        && request.auth.uid in existing().participantIds
+        && incoming().id == existing().id
+        && incoming().roomId == existing().roomId
+        && incoming().uidA == existing().uidA
+        && incoming().uidB == existing().uidB
+        && incoming().usernameA == existing().usernameA
+        && incoming().usernameB == existing().usernameB
+        && incoming().participantIds == existing().participantIds
+        && incoming().createdAt == existing().createdAt
+        && (
+          (
+            existing().status == 'open'
+            && (
+              (
+                request.auth.uid == existing().uidA
+                && incoming().diff(existing()).affectedKeys().hasOnly(['offerA', 'acceptA', 'acceptB', 'confirmA', 'confirmB', 'updatedAt'])
+                && incoming().status == 'open'
+                && incoming().acceptA == false
+                && incoming().acceptB == false
+                && incoming().confirmA == false
+                && incoming().confirmB == false
+              )
+              || (
+                request.auth.uid == existing().uidB
+                && incoming().diff(existing()).affectedKeys().hasOnly(['offerB', 'acceptA', 'acceptB', 'confirmA', 'confirmB', 'updatedAt'])
+                && incoming().status == 'open'
+                && incoming().acceptA == false
+                && incoming().acceptB == false
+                && incoming().confirmA == false
+                && incoming().confirmB == false
+              )
+              || (
+                request.auth.uid == existing().uidA
+                && incoming().diff(existing()).affectedKeys().hasOnly(['acceptA', 'confirmA', 'confirmB', 'updatedAt'])
+                && incoming().status == 'open'
+                && incoming().confirmA == false
+                && incoming().confirmB == false
+              )
+              || (
+                request.auth.uid == existing().uidB
+                && incoming().diff(existing()).affectedKeys().hasOnly(['acceptB', 'confirmA', 'confirmB', 'updatedAt'])
+                && incoming().status == 'open'
+                && incoming().confirmA == false
+                && incoming().confirmB == false
+              )
+              || (
+                existing().acceptA == true
+                && existing().acceptB == true
+                && (
+                  (
+                    request.auth.uid == existing().uidA
+                    && existing().confirmB == false
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['confirmA', 'updatedAt'])
+                    && incoming().confirmA == true
+                  )
+                  || (
+                    request.auth.uid == existing().uidB
+                    && existing().confirmA == false
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['confirmB', 'updatedAt'])
+                    && incoming().confirmB == true
+                  )
+                )
+              )
+              || (
+                (!isEconomyFrozen() || isOwner())
+                && existing().acceptA == true
+                && existing().acceptB == true
+                && (
+                  (request.auth.uid == existing().uidA && existing().confirmB == true)
+                  || (request.auth.uid == existing().uidB && existing().confirmA == true)
+                )
+                && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'confirmA', 'confirmB', 'syncedA', 'syncedB', 'updatedAt'])
+                && incoming().status == 'completed'
+                && incoming().confirmA == true
+                && incoming().confirmB == true
+              )
+              || (
+                incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+                && incoming().status == 'cancelled'
+              )
+            )
+          )
+          || (
+            existing().status == 'completed'
+            && incoming().status == 'completed'
+            && (
+              (
+                request.auth.uid == existing().uidA
+                && incoming().diff(existing()).affectedKeys().hasOnly(['syncedA', 'updatedAt'])
+                && incoming().syncedA == true
+              )
+              || (
+                request.auth.uid == existing().uidB
+                && incoming().diff(existing()).affectedKeys().hasOnly(['syncedB', 'updatedAt'])
+                && incoming().syncedB == true
+              )
+            )
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // --- 1-on-1 Pixel Console Private Chats ---
+    match /private_chats/{chatId} {
+      allow get: if isSignedIn()
+        && isValidChatId(chatId)
+        && (resource == null || request.auth.uid in resource.data.participantIds);
+
+      allow list: if isSignedIn()
+        && request.auth.uid in resource.data.participantIds;
+
+      allow create: if isSignedIn()
+        && isValidChatId(chatId)
+        && !isCallerGloballyBanned()
+        && isValidPrivateChat(incoming(), chatId)
+        && request.auth.uid in incoming().participantIds
+        && incoming().lastMessageAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidChatId(chatId)
+        && isValidPrivateChat(incoming(), chatId)
+        && request.auth.uid in existing().participantIds
+        && incoming().id == existing().id
+        && incoming().participantIds == existing().participantIds
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['lastMessageText', 'lastSenderUid', 'lastMessageAt', 'readBy'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['readBy'])
+        );
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow get: if isSignedIn()
+          && isValidChatId(chatId)
+          && isValidId(messageId)
+          && isChatParticipant(chatId);
+
+        allow list: if isSignedIn()
+          && request.auth.uid in resource.data.participantIds;
+
+        allow create: if isSignedIn()
+          && isValidChatId(chatId)
+          && isValidId(messageId)
+          && isValidPrivateMessage(incoming())
+          && request.auth.uid in incoming().participantIds
+          && isChatParticipant(chatId);
+
+        allow update, delete: if false;
+      }
+    }
+
+    // --- Grouped Game Hubs (Lobby + Arenas) & Live Kick Wars Active Match Tracker ---
+    match /roomGroups/{groupId} {
+      allow get: if isSignedIn() && isValidId(groupId);
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && isValidId(groupId)
+        && !isCallerGloballyBanned()
+        && isValidRoomGroup(incoming(), groupId)
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidId(groupId)
+        && (existing().ownerId == request.auth.uid || isGlobalGmOrAbove())
+        && isValidRoomGroup(incoming(), groupId)
+        && incoming().id == existing().id
+        && incoming().ownerId == existing().ownerId
+        && incoming().ownerName == existing().ownerName
+        && incoming().createdAt == existing().createdAt;
+
+      allow delete: if isSignedIn()
+        && isValidId(groupId)
+        && (existing().ownerId == request.auth.uid || isOwner());
+
+      match /activeMatch/current {
+        allow get: if isSignedIn() && isValidId(groupId);
+        allow list: if false;
+
+        allow create, update: if isSignedIn()
+          && isValidId(groupId)
+          && !isCallerGloballyBanned()
+          && isValidActiveMatch(incoming())
+          && incoming().groupId == groupId
+          && incoming().updatedAt == request.time;
+
+        allow delete: if isSignedIn()
+          && isValidId(groupId)
+          && isGlobalGmOrAbove();
+      }
+    }
+
+    // --- Pixel Plaza Rooms Directory ---
+    match /rooms/{roomId} {
+      allow get: if isSignedIn()
+        && isValidId(roomId)
+        && (
+          resource == null
+          || resource.data.isPublic == true
+          || resource.data.ownerId == request.auth.uid
+          || ('invitedUids' in resource.data && request.auth.uid in resource.data.invitedUids)
+          || isGlobalGmOrAbove()
+        );
+
+      allow list: if isSignedIn()
+        && (
+          resource.data.isPublic == true
+          || resource.data.ownerId == request.auth.uid
+          || ('invitedUids' in resource.data && request.auth.uid in resource.data.invitedUids)
+        );
+
+      allow create: if isSignedIn()
+        && isValidId(roomId)
+        && !isCallerGloballyBanned()
+        && isValidRoom(incoming(), roomId)
+        && incoming().createdAt == request.time
+        && (!('layoutType' in incoming()) || !isVipLayoutType(incoming().layoutType) || isSignedInUserClubMember())
+        && (!('layoutType' in incoming()) || incoming().layoutType != 'owner_sanctuary' || isOwner())
+        && (
+          incoming().ownerId == request.auth.uid
+          || (isSystemPublicRoomId(roomId) && incoming().ownerId == 'system' && incoming().isPublic == true)
+        );
+
+      allow update: if isSignedIn()
+        && isValidId(roomId)
+        && isValidRoom(incoming(), roomId)
+        && incoming().id == existing().id
+        && incoming().ownerId == existing().ownerId
+        && incoming().ownerName == existing().ownerName
+        && incoming().createdAt == existing().createdAt
+        && (
+          // Room Owner OR Global GM/Admin/Owner: Full room settings, invite allowlist, roles, game mode & moderation
+          (
+            (existing().ownerId == request.auth.uid || isGlobalGmOrAbove())
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'name', 'isPublic', 'accessMode', 'roomPasscode', 'invitedUids',
+              'allowWalkThrough', 'allowVisitorBuild',
+              'wallTheme', 'floorTheme', 'ambientDim',
+              'moderators', 'hosts', 'builders',
+              'gameMode', 'groupId', 'kickWarsMode', 'kickWarsRange',
+              'matchActive', 'redScore', 'blueScore',
+              'bannedUsers', 'silencedUsers'
+            ])
+          )
+          // Room Host (or legacy moderator): ban/silence + Kick Wars match control
+          || (
+            (
+              ('moderators' in existing() && request.auth.uid in existing().moderators)
+              || ('hosts' in existing() && request.auth.uid in existing().hosts)
+            )
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'bannedUsers', 'silencedUsers',
+              'kickWarsMode', 'kickWarsRange', 'matchActive', 'redScore', 'blueScore'
+            ])
+            && (!('bannedUsers' in incoming()) || !(existing().ownerId in incoming().bannedUsers))
+            && (!('silencedUsers' in incoming()) || !(existing().ownerId in incoming().silencedUsers))
+          )
+          // Chat Flood Auto-Mute (allows client flood guard to enforce self-silence on own UID only)
+          || (
+            incoming().diff(existing()).affectedKeys().hasOnly(['silencedUsers'])
+            && 'silencedUsers' in incoming()
+            && request.auth.uid in incoming().silencedUsers
+            && incoming().silencedUsers[request.auth.uid] >= request.time.toMillis()
+            && incoming().silencedUsers[request.auth.uid] <= request.time.toMillis() + 120000
+            && (
+              !('silencedUsers' in existing())
+              || !(request.auth.uid in existing().silencedUsers)
+              || incoming().silencedUsers[request.auth.uid] >= existing().silencedUsers[request.auth.uid]
+            )
+          )
+        );
+
+      allow delete: if isSignedIn()
+        && isValidId(roomId)
+        && (existing().ownerId == request.auth.uid || isOwner());
+
+      // Doorbell requests for doorbell-locked rooms
+      match /doorbells/{uid} {
+        allow get: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(uid)
+          && (request.auth.uid == uid || isRoomOwner(roomId) || isRoomHost(roomId) || isGlobalGmOrAbove());
+
+        allow list: if isSignedIn()
+          && isValidId(roomId)
+          && resource.data.status == 'ringing';
+
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(uid)
+          && request.auth.uid == uid
+          && isValidDoorbell(incoming(), uid)
+          && incoming().status == 'ringing'
+          && incoming().createdAt == request.time
+          && !isBannedFromRoom(roomId);
+
+        allow update: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(uid)
+          && isValidDoorbell(incoming(), uid)
+          && incoming().uid == existing().uid
+          && (
+            (
+              request.auth.uid == uid
+              && incoming().status == 'ringing'
+              && incoming().createdAt == request.time
+            )
+            || (
+              (isRoomOwner(roomId) || isRoomHost(roomId) || isGlobalGmOrAbove())
+              && incoming().status in ['accepted', 'denied']
+              && incoming().diff(existing()).affectedKeys().hasOnly(['status'])
+            )
+          );
+
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(uid)
+          && (request.auth.uid == uid || isRoomOwner(roomId) || isRoomHost(roomId) || isGlobalGmOrAbove());
+      }
+
+      // Owner & GM/Admin/Owner scripted NPCs with patrol waypoints
+      match /npcs/{npcId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(npcId);
+        allow list: if isSignedIn()
+          && isValidId(roomId)
+          && resource.data.x >= 0
+          && resource.data.x <= 19;
+
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(npcId)
+          && (isRoomOwner(roomId) || isGlobalGmOrAbove())
+          && isValidRoomNpc(incoming(), npcId)
+          && incoming().ownerId == request.auth.uid
+          && incoming().createdAt == request.time;
+
+        allow update: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(npcId)
+          && isValidRoomNpc(incoming(), npcId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && (
+            (
+              (isRoomOwner(roomId) || isGlobalAdmin())
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'name', 'role', 'avatar', 'x', 'y', 'direction', 'dialogueList', 'patrolPath'
+              ])
+            )
+            || (
+              isGlobalGmOrAbove()
+              && incoming().diff(existing()).affectedKeys().hasOnly(['x', 'y', 'direction', 'patrolPath'])
+            )
+          );
+
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(npcId)
+          && (isRoomOwner(roomId) || isGlobalGmOrAbove());
+      }
+
+      // Kick Wars manual kick & host kick events
+      match /kicks/{kickId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(kickId);
+        allow list: if isSignedIn() && isValidId(roomId) && resource.data.createdAt > timestamp.date(1970, 1, 1);
+
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(kickId)
+          && !isCallerGloballyBanned()
+          && isValidRoomKick(incoming(), kickId)
+          && incoming().kickerUid == request.auth.uid
+          && incoming().createdAt == request.time
+          && (
+            (
+              exists(/databases/$(database)/documents/rooms/$(roomId))
+              && get(/databases/$(database)/documents/rooms/$(roomId)).data.get('gameMode', 'hangout') == 'kick_wars'
+            )
+            || isRoomOwner(roomId)
+            || isRoomHost(roomId)
+            || isGlobalModOrAbove()
+          );
+
+        allow update: if false;
+
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(kickId)
+          && (existing().targetUid == request.auth.uid || isRoomOwner(roomId) || isRoomHost(roomId) || isGlobalModOrAbove());
+      }
+
+      // Staff-dropped Interactive Event Gift Chests
+      match /event_chests/{chestId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(chestId);
+        allow list: if isSignedIn() && isValidId(roomId) && resource.data.roomId == roomId;
+
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(chestId)
+          && isGlobalGmOrAbove()
+          && isValidEventChest(incoming(), chestId, roomId)
+          && incoming().createdAt == request.time;
+
+        allow update: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(chestId)
+          && isValidEventChest(incoming(), chestId, roomId)
+          && incoming().id == existing().id
+          && incoming().roomId == existing().roomId
+          && incoming().createdAt == existing().createdAt
+          && (
+            isGlobalGmOrAbove()
+            || (
+              !isCallerGloballyBanned()
+              && !(request.auth.uid in existing().claimedByUids)
+              && request.auth.uid in incoming().claimedByUids
+              && incoming().claimedByUids.size() == existing().claimedByUids.size() + 1
+              && existing().claimedByUids.size() < existing().maxClaims
+              && incoming().diff(existing()).affectedKeys().hasOnly(['claimedByUids'])
+            )
+          );
+
+        allow delete: if isSignedIn() && isValidId(roomId) && isValidId(chestId) && isGlobalGmOrAbove();
+      }
+
+      // Live Turf Wars & Rapid Chairs Arena State
+      match /arena_state/{stateId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(stateId);
+        allow list: if isSignedIn() && isValidId(roomId) && resource.data.id is string;
+
+        allow create, update: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(stateId)
+          && !isCallerGloballyBanned()
+          && isValidArenaState(incoming(), stateId)
+          && incoming().updatedAt == request.time;
+
+        allow delete: if isSignedIn() && isValidId(roomId) && isValidId(stateId) && (isRoomOwner(roomId) || isGlobalGmOrAbove());
+      }
+
+      // Players in room
+      match /players/{uid} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(uid);
+        allow list: if isSignedIn() && isValidId(roomId) && resource.data.isAdultConfirmed == true;
+
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(uid)
+          && request.auth.uid == uid
+          && !isCallerGloballyBanned()
+          && isValidPlayer(incoming())
+          && incoming().uid == request.auth.uid
+          && incoming().lastActive is timestamp
+          && !isBannedFromRoom(roomId);
+
+        allow update: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(uid)
+          && isValidPlayer(incoming())
+          && incoming().uid == existing().uid
+          && incoming().isAdultConfirmed == existing().isAdultConfirmed
+          && incoming().lastActive is timestamp
+          && (
+            request.auth.uid == uid
+            || isRoomOwner(roomId)
+            || isRoomHost(roomId)
+            || isGlobalGmOrAbove()
+          );
+
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(uid)
+          && (
+            request.auth.uid == uid
+            || existing().lastActive < request.time - duration.value(60, 's')
+            || (
+              (isRoomOwner(roomId) || isRoomHost(roomId) || isGlobalModOrAbove())
+              && uid != get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerId
+              && (!('staffRole' in existing()) || !(existing().staffRole in ['owner', 'super_admin']))
+            )
+          );
+      }
+
+      // Messages in room
+      match /messages/{messageId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(messageId);
+        allow list: if isSignedIn()
+          && isValidId(roomId)
+          && resource.data.createdAt > timestamp.date(1970, 1, 1);
+
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(messageId)
+          && isValidMessage(incoming())
+          && !isSilencedInRoom(roomId)
+          && !isCallerGloballyBanned()
+          && !isCallerGloballyMuted();
+
+        allow update: if false;
+
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(messageId)
+          && (existing().uid == request.auth.uid || isGlobalModOrAbove());
+      }
+
+      // Placed room furniture (x/y bounded 0..19; strict owner/builder/GM+ authorization)
+      match /furniture/{itemId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(itemId);
+        allow list: if isSignedIn()
+          && isValidId(roomId)
+          && resource.data.x >= 0
+          && resource.data.x <= 19;
+
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(itemId)
+          && isValidFurniture(incoming(), itemId)
+          && incoming().ownerId == request.auth.uid
+          && (
+            canManageRoomFurniture(roomId)
+            || (
+              isSystemPublicRoomId(roomId)
+              && !exists(/databases/$(database)/documents/rooms/$(roomId)/furniture/$(itemId))
+            )
+          );
+
+        allow update: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(itemId)
+          && isValidFurniture(incoming(), itemId)
+          && incoming().id == existing().id
+          && incoming().type == existing().type
+          && incoming().name == existing().name
+          && incoming().ownerId == existing().ownerId
+          && (
+            (
+              (canManageRoomFurniture(roomId) || isRoomHost(roomId))
+              && (incoming().walkable == existing().walkable || existing().type in ['vip_rope_gate', 'laser_gate'])
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'x', 'y', 'rotation', 'zHeight', 'state', 'walkable', 'linkChannel', 'linkedRoomId'
+              ])
+            )
+            || (
+              existing().type in [
+                'neon_lamp', 'vip_table', 'neon_cocktail_table', 'cafe_bistro_table',
+                'pressure_plate', 'lava_lamp', 'peace_neon_art',
+                'wall_sconce', 'crystal_chandelier', 'flat_screen_tv'
+              ]
+              && incoming().walkable == existing().walkable
+              && incoming().diff(existing()).affectedKeys().hasOnly(['state'])
+              && incoming().state in ['on', 'off']
+            )
+            || (
+              existing().type in ['coffee_machine', 'vending_machine', 'hotel_elevator', 'vip_grand_piano']
+              && incoming().walkable == existing().walkable
+              && incoming().diff(existing()).affectedKeys().hasOnly(['animAt'])
+              && 'animAt' in incoming()
+              && (incoming().animAt is int || incoming().animAt is float)
+              && incoming().animAt >= 0
+            )
+            || (
+              existing().type == 'slot_machine'
+              && incoming().walkable == existing().walkable
+              && incoming().diff(existing()).affectedKeys().hasOnly(['animAt', 'slotResult'])
+              && 'animAt' in incoming()
+              && (incoming().animAt is int || incoming().animAt is float)
+              && incoming().animAt >= 0
+              && 'slotResult' in incoming()
+              && incoming().slotResult is string
+              && incoming().slotResult.size() <= 16
+            )
+            || (
+              existing().type in ['vip_rope_gate', 'laser_gate']
+              && incoming().diff(existing()).affectedKeys().hasOnly(['state', 'walkable'])
+              && incoming().state in ['open', 'closed']
+              && incoming().walkable == (incoming().state == 'open')
+            )
+            || (
+              existing().type == 'casino_dice'
+              && incoming().walkable == existing().walkable
+              && incoming().diff(existing()).affectedKeys().hasOnly(['diceValue', 'diceRolledAt'])
+              && incoming().diceValue is int
+              && incoming().diceValue >= 1
+              && incoming().diceValue <= 6
+            )
+            || (
+              existing().type == 'arena_scoreboard'
+              && incoming().walkable == existing().walkable
+              && incoming().diff(existing()).affectedKeys().hasOnly(['scoreA', 'scoreB'])
+            )
+          );
+
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(itemId)
+          && (
+            isRoomOwner(roomId)
+            || isGlobalGmOrAbove()
+            || ((isOpenBuildRoom(roomId) || isRoomBuilder(roomId)) && existing().ownerId == request.auth.uid)
+          );
+      }
+    }
+  }
+}

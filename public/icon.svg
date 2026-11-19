@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0d14" />
+      <stop offset="100%" stop-color="#141c33" />
+    </linearGradient>
+    <linearGradient id="topFace" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <linearGradient id="leftFace" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#4338ca" />
+    </linearGradient>
+    <linearGradient id="rightFace" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e879f9" />
+      <stop offset="100%" stop-color="#a21caf" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bgGrad)" />
+  <circle cx="256" cy="256" r="190" fill="none" stroke="#22d3ee" stroke-opacity="0.18" stroke-width="6" />
+  <polygon points="256,96 408,184 256,272 104,184" fill="url(#topFace)" />
+  <polygon points="104,184 256,272 256,424 104,336" fill="url(#leftFace)" />
+  <polygon points="408,184 256,272 256,424 408,336" fill="url(#rightFace)" />
+  <polygon points="256,142 346,194 256,246 166,194" fill="#0b0d14" fill-opacity="0.32" />
+  <rect x="232" y="168" width="48" height="48" rx="10" fill="#fde047" />
+</svg>

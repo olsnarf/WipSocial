@@ -1,0 +1,1062 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Permanent player account, dual-currency wallet, 4-tier staff role, unlocks, Plaza Club VIP status, motto, and saved wardrobe.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID."
+        },
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 16,
+          "pattern": "^[a-zA-Z0-9]{3,16}$",
+          "description": "Unique permanent alphanumeric game username."
+        },
+        "motto": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 50,
+          "description": "Customizable player motto shown on their profile and context card."
+        },
+        "staffRole": {
+          "type": "string",
+          "enum": ["user", "moderator", "gm", "admin", "owner", "super_admin"],
+          "description": "Global Pixel Plaza 4-tier staff hierarchy (owner assigned to Snarf)."
+        },
+        "isOnDuty": {
+          "type": "boolean",
+          "description": "Staff utility toggle displaying overhead role badge on nametags and chat bubbles."
+        },
+        "isBanned": {
+          "type": "boolean",
+          "description": "Global account ban flag enforced across login and all rooms."
+        },
+        "tempBanUntilMs": {
+          "type": "number",
+          "description": "Epoch ms expiry for temporary bans (0 means permanent when isBanned is true)."
+        },
+        "banReason": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 160,
+          "description": "Staff reason recorded for global or temporary ban."
+        },
+        "isMuted": {
+          "type": "boolean",
+          "description": "Global mute flag preventing public chat across all rooms."
+        },
+        "hasCustomWardrobe": {
+          "type": "boolean",
+          "description": "Owner-granted unlock for unrestricted hex color pickers, 70s Afro, and pattern overlays."
+        },
+        "hasSpecialtyFurni": {
+          "type": "boolean",
+          "description": "Owner-granted unlock for the 70s Retro & Specialty Furniture pack."
+        },
+        "eloRating": {
+          "type": "number",
+          "description": "Matchmaking league rating (default 1000)."
+        },
+        "turfRating": {
+          "type": "number",
+          "description": "Competitive Turf Wars rating (default 1000)."
+        },
+        "summonRoomId": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 128
+        },
+        "summonRoomName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 36
+        },
+        "summonBy": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 24
+        },
+        "summonAt": {
+          "type": "number"
+        },
+        "credits": {
+          "type": "number",
+          "description": "Premium currency balance (starts at 50)."
+        },
+        "tokens": {
+          "type": "number",
+          "description": "Free earned currency balance (starts at 1000)."
+        },
+        "memberPoints": {
+          "type": "number",
+          "description": "Executive VIP Loyalty Member Points balance (starts at 250)."
+        },
+        "memberTenureMonths": {
+          "type": "number",
+          "description": "Cumulative months of VIP membership tenure for milestone rewards."
+        },
+        "claimedTierRewards": {
+          "type": "array",
+          "description": "List of claimed VIP milestone reward IDs (tier_1m, tier_3m, tier_6m)."
+        },
+        "ownedWardrobeIds": {
+          "type": "array",
+          "description": "List of unlocked WardrobeCatalogItem IDs owned by the player."
+        },
+        "isClubMember": {
+          "type": "boolean",
+          "description": "Whether the player holds an active Executive VIP membership."
+        },
+        "clubExpiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the player's Executive VIP membership expires."
+        },
+        "lastDailyClaim": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the most recent daily Tokens claim."
+        },
+        "lastClaimAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the most recent Token/reward claim."
+        },
+        "lastChatAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the most recent room chat message."
+        },
+        "avatar": {
+          "type": "object",
+          "description": "Saved The Aurelia isometric avatar appearance.",
+          "properties": {
+            "gender": { "type": "string", "enum": ["male", "female"] },
+            "skin": { "type": "string", "maxLength": 7, "pattern": "^#[0-9a-fA-F]{6}$" },
+            "hair": { "type": "string", "maxLength": 7, "pattern": "^#[0-9a-fA-F]{6}$" },
+            "eyeColor": { "type": "string", "maxLength": 7, "pattern": "^#[0-9a-fA-F]{6}$" },
+            "top": { "type": "string", "maxLength": 7, "pattern": "^#[0-9a-fA-F]{6}$" },
+            "bottom": { "type": "string", "maxLength": 7, "pattern": "^#[0-9a-fA-F]{6}$" },
+            "hairStyle": {
+              "type": "string",
+              "enum": [
+                "buzz", "spiky", "bob", "long_waves", "pompadour",
+                "undercut", "braids", "curls", "afro", "man_bun",
+                "side_part", "curly_crop", "slick_back", "fade", "tousled",
+                "pigtails", "afro_puff", "beach_waves", "pixie", "chignon",
+                "high_ponytail", "curtain_bangs"
+              ]
+            },
+            "hat": {
+              "type": "string",
+              "enum": [
+                "none", "snapback", "beanie", "headphones", "fedora",
+                "beret", "tophat", "crown", "halo", "fascinator", "cloche"
+              ]
+            },
+            "topStyle": {
+              "type": "string",
+              "enum": [
+                "tshirt", "hoodie", "suit", "leather", "tank", "crop",
+                "polo", "turtleneck", "silk_shirt", "henley", "varsity",
+                "tuxedo", "cashmere", "halter", "silk_blouse"
+              ]
+            },
+            "bottomStyle": {
+              "type": "string",
+              "enum": ["jeans", "shorts", "skirt", "slacks", "chinos", "cargo", "midi_skirt"]
+            },
+            "shoeStyle": {
+              "type": "string",
+              "enum": ["sneakers", "boots", "loafers", "dress_shoes", "espadrilles", "heels", "oxfords"]
+            },
+            "shoeColor": { "type": "string", "maxLength": 7, "pattern": "^#[0-9a-fA-F]{6}$" },
+            "clothPattern": {
+              "type": "string",
+              "enum": ["none", "tie_dye", "checkerboard", "camo", "starfield"]
+            },
+            "hairId": { "type": "string", "maxLength": 48 },
+            "topId": { "type": "string", "maxLength": 48 },
+            "bottomId": { "type": "string", "maxLength": 48 },
+            "footwearId": { "type": "string", "maxLength": 48 },
+            "accessoryId": { "type": "string", "maxLength": 48 },
+            "auraEffect": { "type": "string", "enum": ["none", "diamond"] }
+          },
+          "required": ["skin", "hair", "top", "bottom", "hairStyle"]
+        },
+        "lastTradeId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Identifier of the most recent settled trade for atomic verification."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when account was created."
+        }
+      },
+      "required": [
+        "uid",
+        "username",
+        "credits",
+        "tokens",
+        "lastDailyClaim",
+        "avatar",
+        "createdAt"
+      ]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "An owned, tradable furniture item stored in a player's inventory.",
+      "type": "object",
+      "properties": {
+        "itemId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "dj_console",
+            "dj_speaker",
+            "bar_counter",
+            "bar_corner",
+            "vip_sofa",
+            "vip_table",
+            "velvet_armchair",
+            "neon_cocktail_table",
+            "retro_arcade",
+            "potted_monstera",
+            "dance_floor_tile",
+            "vip_daybed",
+            "club_rug",
+            "neon_lamp",
+            "cocktail_tray",
+            "casino_dice",
+            "vip_rope_gate",
+            "teleporter_booth",
+            "one_way_gate",
+            "pressure_plate",
+            "espresso_bar",
+            "cafe_bistro_table",
+            "cozy_bookshelf",
+            "loft_armchair",
+            "vip_golden_trophy",
+            "vip_grand_piano",
+            "vip_hot_tub",
+            "vip_emerald_throne",
+            "rope_barrier",
+            "picket_fence",
+            "glass_partition",
+            "velvet_stanchion",
+            "laser_gate",
+            "arena_scoreboard",
+            "tie_dye_beanbag",
+            "lava_lamp",
+            "tie_dye_rug",
+            "beaded_curtain",
+            "shag_velvet_sofa",
+            "peace_neon_art",
+            "custom_sprite",
+            "reception_desk",
+            "chesterfield_sofa",
+            "brass_stanchion",
+            "potted_ficus",
+            "hotel_elevator",
+            "four_poster_bed",
+            "nightstand",
+            "flat_screen_tv",
+            "mini_fridge",
+            "suitcase_stand",
+            "wardrobe_cabinet",
+            "coffee_machine",
+            "barista_counter",
+            "bistro_table",
+            "bistro_chair",
+            "vending_machine",
+            "pastry_display",
+            "poker_table",
+            "roulette_table",
+            "slot_machine",
+            "craps_table",
+            "poker_chips",
+            "pool_lounger",
+            "cabana_canopy",
+            "boardroom_table",
+            "executive_chair",
+            "framed_painting",
+            "deco_vase",
+            "art_deco_rug",
+            "wall_sconce",
+            "crystal_chandelier",
+            "gold_throne",
+            "jet_interior_tile",
+            "vip_lounge_door",
+            "concierge_pet"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "walkable": {
+          "type": "boolean"
+        },
+        "isTradable": {
+          "type": "boolean"
+        },
+        "catalogId": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "isClubOnly": {
+          "type": "boolean"
+        },
+        "variantSpec": {
+          "type": "object"
+        },
+        "customSpriteSpec": {
+          "type": "object"
+        },
+        "acquiredAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["itemId", "type", "name", "walkable", "isTradable", "acquiredAt"]
+    },
+    "FriendLink": {
+      "title": "FriendLink",
+      "description": "Friend relationship or pending friend request stored under users/{uid}/friends.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "username": { "type": "string", "minLength": 3, "maxLength": 16, "pattern": "^[a-zA-Z0-9]{3,16}$" },
+        "status": { "type": "string", "enum": ["pending_incoming", "pending_outgoing", "accepted"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "username", "status", "updatedAt"]
+    },
+    "PlayerStatus": {
+      "title": "PlayerStatus",
+      "description": "Public online presence & current room indicator for friend Follow, Console, and Staff Warp.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "username": { "type": "string", "minLength": 3, "maxLength": 16, "pattern": "^[a-zA-Z0-9]{3,16}$" },
+        "currentRoomId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "currentRoomName": { "type": "string", "minLength": 1, "maxLength": 36 },
+        "isOnline": { "type": "boolean" },
+        "lastSeen": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "username", "currentRoomId", "currentRoomName", "isOnline", "lastSeen"]
+    },
+    "UsernameClaim": {
+      "title": "UsernameClaim",
+      "description": "Lowercase uniqueness lock document mapping a username to its owning UID.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "username": { "type": "string", "minLength": 3, "maxLength": 16, "pattern": "^[a-zA-Z0-9]{3,16}$" },
+        "authEmail": { "type": "string", "minLength": 16, "maxLength": 30, "pattern": "^[a-z0-9]{3,16}@lounge\\.local$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "username", "authEmail", "createdAt"]
+    },
+    "TradeSession": {
+      "title": "TradeSession",
+      "description": "Real-time two-sided player-to-player trade session with two-step safety confirmation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uidA": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "usernameA": { "type": "string", "minLength": 3, "maxLength": 16 },
+        "uidB": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "usernameB": { "type": "string", "minLength": 3, "maxLength": 16 },
+        "participantIds": { "type": "array" },
+        "status": { "type": "string", "enum": ["open", "completed", "cancelled"] },
+        "offerA": { "type": "object" },
+        "offerB": { "type": "object" },
+        "acceptA": { "type": "boolean" },
+        "acceptB": { "type": "boolean" },
+        "confirmA": { "type": "boolean" },
+        "confirmB": { "type": "boolean" },
+        "syncedA": { "type": "boolean" },
+        "syncedB": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "roomId", "uidA", "usernameA", "uidB", "usernameB",
+        "participantIds", "status", "offerA", "offerB",
+        "acceptA", "acceptB", "confirmA", "confirmB", "syncedA", "syncedB",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "PrivateChat": {
+      "title": "PrivateChat",
+      "description": "1-on-1 Pixel Console conversation metadata.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 3, "maxLength": 260, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "participantIds": { "type": "array" },
+        "participantNames": { "type": "object" },
+        "lastMessageText": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "lastSenderUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "readBy": { "type": "object" },
+        "lastMessageAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "participantIds", "participantNames", "lastMessageText", "lastSenderUid", "readBy", "lastMessageAt"]
+    },
+    "PrivateMessage": {
+      "title": "PrivateMessage",
+      "description": "A single 1-on-1 message inside private_chats/{chatId}/messages.",
+      "type": "object",
+      "properties": {
+        "senderUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderName": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderUid", "senderName", "text", "createdAt"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "Metadata, visual customization, floorplan, and moderation settings for a Pixel Plaza room.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 36 },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerName": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "isPublic": { "type": "boolean" },
+        "layoutType": {
+          "type": "string",
+          "enum": [
+            "cozy_studio",
+            "classic_lounge",
+            "l_shaped_vip",
+            "grand_penthouse",
+            "vip_duplex_loft",
+            "vip_sky_atrium",
+            "owner_sanctuary"
+          ]
+        },
+        "accessMode": {
+          "type": "string",
+          "enum": ["open", "doorbell", "password"]
+        },
+        "roomPasscode": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 24
+        },
+        "invitedUids": {
+          "type": "array",
+          "description": "Invite allowlist for Owner Sanctuary or private rooms (max 50)."
+        },
+        "allowWalkThrough": { "type": "boolean" },
+        "allowVisitorBuild": { "type": "boolean" },
+        "wallTheme": {
+          "type": "string",
+          "enum": [
+            "art_deco_brass",
+            "mahogany_lobby",
+            "sapphire_salon",
+            "emerald_terrace",
+            "casino_gilded",
+            "sunlit_loft",
+            "cozy_cafe",
+            "apartment_warm",
+            "game_arena",
+            "dark_slate_neon",
+            "exposed_brick_club",
+            "velvet_crimson",
+            "midnight_penthouse",
+            "cyber_grid"
+          ]
+        },
+        "floorTheme": {
+          "type": "string",
+          "enum": [
+            "veined_marble_gold",
+            "art_deco_chevron",
+            "emerald_terrazzo",
+            "sapphire_carpet",
+            "ivory_travertine",
+            "oak_parquet",
+            "cafe_terracotta",
+            "sunlit_tile",
+            "arena_turf",
+            "checkered_marble",
+            "dark_hardwood",
+            "glowing_club_tiles",
+            "plush_burgundy_carpet",
+            "concrete_loft"
+          ]
+        },
+        "ambientDim": { "type": "number" },
+        "moderators": { "type": "array" },
+        "hosts": { "type": "array" },
+        "builders": { "type": "array" },
+        "gameMode": {
+          "type": "string",
+          "enum": ["hangout", "kick_wars", "maze_race", "casino_freeplay", "turf_wars", "rapid_chairs", "parlor_casino"]
+        },
+        "groupId": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "kickWarsMode": { "type": "string", "enum": ["ffa", "team"] },
+        "kickWarsRange": { "type": "string", "enum": ["melee", "open"] },
+        "matchActive": { "type": "boolean" },
+        "redScore": { "type": "number" },
+        "blueScore": { "type": "number" },
+        "bannedUsers": { "type": "object" },
+        "silencedUsers": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "name", "ownerId", "ownerName", "isPublic",
+        "wallTheme", "floorTheme", "ambientDim", "createdAt"
+      ]
+    },
+    "RoomGroup": {
+      "title": "RoomGroup",
+      "description": "Grouped game hub linking a central teleporter lobby to multiple arena rooms.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 36 },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerName": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "gameType": { "type": "string", "enum": ["kick_wars", "maze_race", "hangout"] },
+        "lobbyRoomId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "arenaRoomIds": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "ownerId", "ownerName", "gameType", "lobbyRoomId", "arenaRoomIds", "createdAt"]
+    },
+    "KickWarsActiveMatch": {
+      "title": "KickWarsActiveMatch",
+      "description": "Live Kick Wars elimination & MVP tracker across a grouped game hub.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "groupId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "type": "string", "enum": ["active", "ended"] },
+        "startedByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "startedByName": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "fighters": { "type": "array" },
+        "winnerUid": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "winnerName": { "type": "string", "minLength": 0, "maxLength": 24 },
+        "mvpUid": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "mvpName": { "type": "string", "minLength": 0, "maxLength": 24 },
+        "mvpKicks": { "type": "number" },
+        "startedAtMs": { "type": "number" },
+        "endedAtMs": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "groupId", "status", "startedByUid", "startedByName", "fighters", "startedAtMs", "updatedAt"]
+    },
+    "RoomKickEvent": {
+      "title": "RoomKickEvent",
+      "description": "Manual Kick Wars elimination or host kick event causing knockback and lobby warp.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "kickerUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "kickerName": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "targetUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetName": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "kickType": { "type": "string", "enum": ["manual", "host"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "kickerUid", "kickerName", "targetUid", "targetName", "kickType", "createdAt"]
+    },
+    "DoorbellRequest": {
+      "title": "DoorbellRequest",
+      "description": "Visitor doorbell entry request inside rooms/{roomId}/doorbells/{uid}.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "username": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "status": { "type": "string", "enum": ["ringing", "accepted", "denied"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "username", "status", "createdAt"]
+    },
+    "RoomNpc": {
+      "title": "RoomNpc",
+      "description": "Owner/GM-placed scripted NPC with preset role, custom lines, and waypoint patrol path.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "role": { "type": "string", "enum": ["bartender", "bouncer", "dj", "host"] },
+        "avatar": { "type": "object" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "direction": { "type": "string", "enum": ["NE", "NW", "SE", "SW"] },
+        "dialogueList": { "type": "array" },
+        "patrolPath": { "type": "array" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "role", "avatar", "x", "y", "direction", "dialogueList", "patrolPath", "ownerId", "createdAt"]
+    },
+    "Player": {
+      "title": "Player",
+      "description": "An active adult-confirmed guest in an isometric Pixel Plaza room.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "motto": { "type": "string", "minLength": 0, "maxLength": 50 },
+        "staffRole": { "type": "string", "enum": ["user", "moderator", "gm", "admin", "owner", "super_admin"] },
+        "isOnDuty": { "type": "boolean" },
+        "isClubMember": { "type": "boolean" },
+        "isAdultConfirmed": { "type": "boolean" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "targetX": { "type": "number" },
+        "targetY": { "type": "number" },
+        "direction": { "type": "string", "enum": ["NE", "NW", "SE", "SW"] },
+        "avatar": { "type": "object" },
+        "heldDrink": { "type": "string", "enum": ["none", "martini", "whiskey", "beer", "shot", "cocktail", "espresso", "soda"] },
+        "emote": { "type": "string", "enum": ["none", "wave", "dance", "laugh", "afk"] },
+        "emoteUntil": { "type": "number" },
+        "team": { "type": "string", "enum": ["none", "red", "blue"] },
+        "spawnShieldUntil": { "type": "number" },
+        "lastKickAt": { "type": "number" },
+        "stunnedUntil": { "type": "number" },
+        "stunImmuneUntil": { "type": "number" },
+        "lastActive": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "isAdultConfirmed", "x", "y", "targetX", "targetY", "direction", "avatar", "heldDrink", "lastActive"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A real-time chat message in an isometric Pixel Plaza room.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "isClubMember": { "type": "boolean" },
+        "staffRole": { "type": "string", "enum": ["user", "moderator", "gm", "admin", "owner", "super_admin"] },
+        "isOnDuty": { "type": "boolean" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "kind": { "type": "string", "enum": ["chat"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "text", "kind", "createdAt"]
+    },
+    "FurnitureItem": {
+      "title": "FurnitureItem",
+      "description": "A placed isometric furniture item or floor tile inside a Pixel Plaza room.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "dj_console", "dj_speaker", "bar_counter", "bar_corner",
+            "vip_sofa", "vip_table", "velvet_armchair", "neon_cocktail_table",
+            "retro_arcade", "potted_monstera", "dance_floor_tile",
+            "vip_daybed", "club_rug", "neon_lamp", "cocktail_tray",
+            "casino_dice", "vip_rope_gate",
+            "teleporter_booth", "one_way_gate", "pressure_plate",
+            "espresso_bar", "cafe_bistro_table", "cozy_bookshelf", "loft_armchair",
+            "vip_golden_trophy", "vip_grand_piano", "vip_hot_tub", "vip_emerald_throne",
+            "rope_barrier", "picket_fence", "glass_partition", "velvet_stanchion",
+            "laser_gate", "arena_scoreboard",
+            "tie_dye_beanbag", "lava_lamp", "tie_dye_rug", "beaded_curtain", "shag_velvet_sofa", "peace_neon_art", "custom_sprite",
+            "reception_desk", "chesterfield_sofa", "brass_stanchion", "potted_ficus", "hotel_elevator",
+            "four_poster_bed", "nightstand", "flat_screen_tv", "mini_fridge", "suitcase_stand", "wardrobe_cabinet",
+            "coffee_machine", "barista_counter", "bistro_table", "bistro_chair", "vending_machine", "pastry_display",
+            "poker_table", "roulette_table", "slot_machine", "craps_table", "poker_chips",
+            "pool_lounger", "cabana_canopy", "boardroom_table", "executive_chair",
+            "framed_painting", "deco_vase", "art_deco_rug", "wall_sconce", "crystal_chandelier",
+            "gold_throne", "jet_interior_tile", "vip_lounge_door", "concierge_pet"
+          ]
+        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 48 },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "rotation": { "type": "number" },
+        "walkable": { "type": "boolean" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "zHeight": { "type": "number" },
+        "state": { "type": "string", "enum": ["on", "off", "open", "closed", "idle"] },
+        "diceValue": { "type": "number" },
+        "diceRolledAt": { "type": "number" },
+        "scoreA": { "type": "number" },
+        "scoreB": { "type": "number" },
+        "linkChannel": { "type": "string", "minLength": 1, "maxLength": 12 },
+        "linkedRoomId": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "catalogId": { "type": "string", "maxLength": 64 },
+        "isClubOnly": { "type": "boolean" },
+        "animAt": { "type": "number" },
+        "slotResult": { "type": "string", "maxLength": 16 },
+        "variantSpec": { "type": "object" },
+        "customSpriteSpec": { "type": "object" }
+      },
+      "required": ["id", "type", "name", "x", "y", "rotation", "walkable", "ownerId"]
+    },
+    "AppBootstrap": {
+      "title": "AppBootstrap",
+      "description": "One-time singleton tracking the first registered global admin UID.",
+      "type": "object",
+      "properties": {
+        "firstAdminUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["firstAdminUid", "createdAt"]
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Global operational switches for Maintenance Mode, Emergency Economy Freeze, and Soft Server Reset.",
+      "type": "object",
+      "properties": {
+        "maintenanceMode": { "type": "boolean" },
+        "economyFreeze": { "type": "boolean" },
+        "softResetAt": { "type": "number" },
+        "updatedBy": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["maintenanceMode", "economyFreeze", "softResetAt", "updatedBy", "updatedAt"]
+    },
+    "StaffLog": {
+      "title": "StaffLog",
+      "description": "Immutable global staff moderation, grant, catalog, event, and role audit log entry.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorName": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "action": {
+          "type": "string",
+          "enum": [
+            "ban", "temp_ban", "unban", "mute", "unmute", "room_kick",
+            "grant_credits", "grant_tokens", "deduct_wallet", "grant_vip",
+            "grant_unlock", "role_change", "report_resolved", "server_control",
+            "catalog_create", "event_launch", "chest_drop"
+          ]
+        },
+        "targetUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetName": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "details": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "actorUid", "actorName", "action", "targetUid", "targetName", "details", "timestamp"]
+    },
+    "PlayerReport": {
+      "title": "PlayerReport",
+      "description": "Moderator moderation or alpha bug report capturing optional 15-message chat transcripts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "category": { "type": "string", "enum": ["player", "bug"] },
+        "reporterUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "reporterName": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "targetUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetName": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "roomId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomName": { "type": "string", "minLength": 1, "maxLength": 36 },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "chatSnapshot": { "type": "array" },
+        "status": { "type": "string", "enum": ["open", "resolved"] },
+        "resolvedBy": { "type": "string", "minLength": 0, "maxLength": 24 },
+        "resolvedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "reporterUid", "reporterName", "targetUid", "targetName", "roomId", "roomName", "reason", "chatSnapshot", "status", "createdAt"]
+    },
+    "AuthAttempt": {
+      "title": "AuthAttempt",
+      "description": "Per-username login brute-force tracker enforcing 15-minute lockouts after 5 failures.",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string", "minLength": 3, "maxLength": 16, "pattern": "^[a-z0-9]+$" },
+        "failedCount": { "type": "number" },
+        "lockedUntilMs": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["username", "failedCount", "lockedUntilMs", "updatedAt"]
+    },
+    "CustomCatalogItem": {
+      "title": "CustomCatalogItem",
+      "description": "GM/Admin/Owner created dynamic procedural furniture catalog entry.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "type": { "type": "string", "enum": ["custom_sprite"] },
+        "name": { "type": "string", "minLength": 1, "maxLength": 48 },
+        "category": { "type": "string", "enum": ["seating", "tables", "lighting", "club_vip", "walls_fences", "retro_70s"] },
+        "creditsPrice": { "type": "number" },
+        "tokensPrice": { "type": "number" },
+        "walkable": { "type": "boolean" },
+        "clubExclusive": { "type": "boolean" },
+        "isSeasonalActive": { "type": "boolean" },
+        "customSpriteSpec": { "type": "object" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "type", "name", "category", "creditsPrice", "tokensPrice", "walkable", "clubExclusive", "isSeasonalActive", "customSpriteSpec", "createdBy", "createdAt", "updatedAt"]
+    },
+    "LiveEvent": {
+      "title": "LiveEvent",
+      "description": "Server-wide Live Event Banner with teleport target and active token multiplier.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 48 },
+        "description": { "type": "string", "minLength": 0, "maxLength": 140 },
+        "roomId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomName": { "type": "string", "minLength": 1, "maxLength": 36 },
+        "tokenMultiplier": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "announcementText": { "type": "string", "minLength": 0, "maxLength": 180 },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "roomId", "roomName", "tokenMultiplier", "isActive", "createdBy", "createdAt", "updatedAt"]
+    },
+    "EventChest": {
+      "title": "EventChest",
+      "description": "Staff-dropped interactive isometric gift chest inside a room.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "rewardCredits": { "type": "number" },
+        "rewardTokens": { "type": "number" },
+        "droppedBy": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "claimedByUids": { "type": "array" },
+        "maxClaims": { "type": "number" },
+        "expiresAtMs": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "roomId", "x", "y", "rewardCredits", "rewardTokens", "droppedBy", "claimedByUids", "maxClaims", "expiresAtMs", "createdAt"]
+    },
+    "MatchQueueEntry": {
+      "title": "MatchQueueEntry",
+      "description": "Global matchmaking queue entry matching by ELO league and expanding worldwide after 15s.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "username": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "mode": { "type": "string", "enum": ["turf_wars", "rapid_chairs", "tictactoe", "checkers", "battleship"] },
+        "eloRating": { "type": "number" },
+        "roomId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "joinedAtMs": { "type": "number" },
+        "matchedMatchId": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "username", "mode", "eloRating", "roomId", "joinedAtMs", "updatedAt"]
+    },
+    "MiniGameMatch": {
+      "title": "MiniGameMatch",
+      "description": "Real-time 2-player parlor tabletop match (Tic-Tac-Toe, Checkers, or Battleship).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "gameType": { "type": "string", "enum": ["tictactoe", "checkers", "battleship"] },
+        "roomId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "uidA": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "usernameA": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "uidB": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "usernameB": { "type": "string", "minLength": 0, "maxLength": 24 },
+        "participantIds": { "type": "array" },
+        "wagerCurrency": { "type": "string", "enum": ["free", "tokens", "credits"] },
+        "wagerAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["waiting", "active", "finished", "cancelled"] },
+        "turnUid": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "winnerUid": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "boardState": { "type": "object" },
+        "settledA": { "type": "boolean" },
+        "settledB": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "gameType", "roomId", "uidA", "usernameA", "participantIds", "wagerCurrency", "wagerAmount", "status", "boardState", "createdAt", "updatedAt"]
+    },
+    "LeaderboardPeriod": {
+      "title": "LeaderboardPeriod",
+      "description": "UTC-rolling Daily, Weekly, or Monthly Turf Wars leaderboard and reward chest claims.",
+      "type": "object",
+      "properties": {
+        "periodId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "type": { "type": "string", "enum": ["daily", "weekly", "monthly"] },
+        "entries": { "type": "object" },
+        "claimedByUids": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["periodId", "type", "entries", "claimedByUids", "updatedAt"]
+    },
+    "ArenaState": {
+      "title": "ArenaState",
+      "description": "Live Turf Wars 10x10 tile grid or Rapid Chairs automated round state inside a hub room.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "enum": ["turf", "rapid_chairs"] },
+        "matchActive": { "type": "boolean" },
+        "phase": { "type": "string" },
+        "round": { "type": "number" },
+        "endsAtMs": { "type": "number" },
+        "nextBeatAtMs": { "type": "number" },
+        "redScore": { "type": "number" },
+        "blueScore": { "type": "number" },
+        "tiles": { "type": "object" },
+        "chairCoords": { "type": "array" },
+        "activeUids": { "type": "array" },
+        "lineUids": { "type": "array" },
+        "winnerUid": { "type": "string" },
+        "winnerName": { "type": "string" },
+        "prizeCredits": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "matchActive", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private player profile, wallet balances (credits, tokens), Plaza Club VIP membership, 4-tier staff role, unlocks, motto, and saved wardrobe."
+    },
+    "/users/{uid}/inventory/{itemId}": {
+      "schema": { "$ref": "#/entities/InventoryItem" },
+      "description": "Player-owned tradable furniture items."
+    },
+    "/users/{uid}/friends/{friendUid}": {
+      "schema": { "$ref": "#/entities/FriendLink" },
+      "description": "Friends and incoming/outgoing friend requests."
+    },
+    "/player_status/{uid}": {
+      "schema": { "$ref": "#/entities/PlayerStatus" },
+      "description": "Online/offline presence and current room for Friend Follow & Staff Warp."
+    },
+    "/usernames/{lowercaseName}": {
+      "schema": { "$ref": "#/entities/UsernameClaim" },
+      "description": "Username uniqueness registry mapping lowercase usernames to UIDs."
+    },
+    "/trades/{tradeId}": {
+      "schema": { "$ref": "#/entities/TradeSession" },
+      "description": "Real-time two-sided player-to-player trade sessions."
+    },
+    "/private_chats/{chatId}": {
+      "schema": { "$ref": "#/entities/PrivateChat" },
+      "description": "1-on-1 Pixel Console conversation metadata."
+    },
+    "/private_chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/PrivateMessage" },
+      "description": "1-on-1 private chat messages."
+    },
+    "/rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/Room" },
+      "description": "Room metadata, ownership, themes, and moderation state."
+    },
+    "/rooms/{roomId}/players/{uid}": {
+      "schema": { "$ref": "#/entities/Player" },
+      "description": "Active multiplayer avatars in the Pixel Plaza room."
+    },
+    "/rooms/{roomId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/Message" },
+      "description": "Live chat messages and isometric speech bubbles in the room."
+    },
+    "/rooms/{roomId}/furniture/{itemId}": {
+      "schema": { "$ref": "#/entities/FurnitureItem" },
+      "description": "Real-time placed furniture and collision state in the room."
+    },
+    "/rooms/{roomId}/doorbells/{uid}": {
+      "schema": { "$ref": "#/entities/DoorbellRequest" },
+      "description": "Visitor doorbell entry requests for doorbell-locked rooms."
+    },
+    "/roomGroups/{groupId}": {
+      "schema": { "$ref": "#/entities/RoomGroup" },
+      "description": "Grouped Game Hubs linking a teleporter lobby to multiple arena rooms."
+    },
+    "/roomGroups/{groupId}/activeMatch/current": {
+      "schema": { "$ref": "#/entities/KickWarsActiveMatch" },
+      "description": "Active Kick Wars match tracker for alive fighters and MVP kicks."
+    },
+    "/rooms/{roomId}/npcs/{npcId}": {
+      "schema": { "$ref": "#/entities/RoomNpc" },
+      "description": "Owner/GM-placed scripted NPC bots with custom dialogue and patrol waypoints."
+    },
+    "/rooms/{roomId}/kicks/{kickId}": {
+      "schema": { "$ref": "#/entities/RoomKickEvent" },
+      "description": "Kick Wars manual elimination and host kick events."
+    },
+    "/rooms/{roomId}/event_chests/{chestId}": {
+      "schema": { "$ref": "#/entities/EventChest" },
+      "description": "Staff-dropped interactive gift chests inside a room."
+    },
+    "/rooms/{roomId}/arena_state/{stateId}": {
+      "schema": { "$ref": "#/entities/ArenaState" },
+      "description": "Live Turf Wars and Rapid Chairs arena state synced across players."
+    },
+    "/app_meta/bootstrap": {
+      "schema": { "$ref": "#/entities/AppBootstrap" },
+      "description": "Singleton bootstrap document tracking the first registered admin UID."
+    },
+    "/app_meta/config": {
+      "schema": { "$ref": "#/entities/AppConfig" },
+      "description": "Global Maintenance Mode, Emergency Economy Freeze, and Soft Reset state."
+    },
+    "/server_state/{docId}": {
+      "schema": { "$ref": "#/entities/AppConfig" },
+      "description": "Server operational state (Maintenance Mode, Economy Freeze, Soft Reset)."
+    },
+    "/auth_attempts/{lowercaseUsername}": {
+      "schema": { "$ref": "#/entities/AuthAttempt" },
+      "description": "Login brute-force lockout counters per username."
+    },
+    "/staff_logs/{logId}": {
+      "schema": { "$ref": "#/entities/StaffLog" },
+      "description": "Immutable global staff audit log entries."
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/PlayerReport" },
+      "description": "Moderator moderation reports with auto-captured 15-message chat transcripts."
+    },
+    "/alpha_reports/{reportId}": {
+      "schema": { "$ref": "#/entities/PlayerReport" },
+      "description": "Alpha bug and player misconduct reports submitted from HUD or Home Dashboard."
+    },
+    "/catalog_items/{itemId}": {
+      "schema": { "$ref": "#/entities/CustomCatalogItem" },
+      "description": "GM/Admin/Owner no-code procedural catalog items and seasonal visibility toggles."
+    },
+    "/live_events/{eventId}": {
+      "schema": { "$ref": "#/entities/LiveEvent" },
+      "description": "Live Event banners, multipliers, and server-wide announcements."
+    },
+    "/matchmaking_queue/{uid}": {
+      "schema": { "$ref": "#/entities/MatchQueueEntry" },
+      "description": "Global queue-from-anywhere matchmaking pool."
+    },
+    "/minigame_matches/{matchId}": {
+      "schema": { "$ref": "#/entities/MiniGameMatch" },
+      "description": "2-player interactive Parlor tabletop matches (Tic-Tac-Toe, Checkers, Battleship)."
+    },
+    "/leaderboards/{periodId}": {
+      "schema": { "$ref": "#/entities/LeaderboardPeriod" },
+      "description": "Rolling UTC Daily/Weekly/Monthly Turf Wars leaderboards and reward claims."
+    }
+  }
+}
